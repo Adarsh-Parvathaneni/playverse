@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Discover from "./pages/Discover";
+import MyGames from "./pages/MyGames";
+import TvHost from "./pages/TvHost";
+import Join from "./pages/Join";
 
 import {
   Gamepad2,
@@ -449,42 +452,11 @@ function App() {
 
           {/* MY GAMES PAGE */}
 
-          {location.pathname === "/my-games" && (
-            <div className="discover-page">
-              <div className="discover-heading">
-                <div>
-                  <div className="eyebrow">
-                    <Library size={14} />
-                    YOUR COLLECTION
-                  </div>
-
-                  <h1>
-                    MY <span>GAMES.</span>
-                  </h1>
-
-                  <p>
-                    Your saved and recently played games will appear here.
-                  </p>
-                </div>
-              </div>
-
-              <div className="empty-games">
-                <Gamepad2 size={35} />
-                <h3>Your collection is waiting</h3>
-                <p>
-                  Explore the game library to discover your next favourite.
-                </p>
-
-                <button
-                  className="primary-button"
-                  onClick={() => navigate("/discover")}
-                >
-                  EXPLORE GAMES
-                  <ArrowUpRight size={17} />
-                </button>
-              </div>
-            </div>
-          )}
+          {location.pathname === "/my-games" && <MyGames />}
+          {location.pathname === "/host" && <TvHost />}
+          {location.pathname.startsWith("/join/") && (
+  <Join />
+)}
 
         </div>
       </main>
