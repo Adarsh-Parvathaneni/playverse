@@ -36,7 +36,7 @@ const ALLOWED_GAMES = [
 const RHYTHM_CONFIG = {
   durationMs: 60_000,
   approachTime: 3500,
-  beatInterval: 500,
+  beatInterval: 750,
   firstNoteTime: 3500,
   perfectWindow: 150,
   goodWindow: 300,

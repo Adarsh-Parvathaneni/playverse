@@ -53,21 +53,29 @@ export default function Join() {
   const [loading, setLoading] = useState(false);
   const [joined, setJoined] = useState(false);
   const [kicked, setKicked] = useState(false);
-  const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
+  const [activeGame, setActiveGame] =
+    useState<ActiveGame | null>(null);
+
+  const [pressedLane, setPressedLane] =
+    useState<number | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
   // Controller input tracking
   const inputSequenceRef = useRef(0);
-
   const inputQueueRef = useRef<ControllerInput[]>([]);
 
+  // Clean up connection on unmount
   useEffect(() => {
     return () => {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
   }, []);
+
+  // ==========================================
+  // JOIN ROOM
+  // ==========================================
 
   const handleJoin = () => {
     const name = nickname.trim();
@@ -124,6 +132,7 @@ export default function Join() {
       );
     });
 
+    // Game starts
     socket.on("game:started", (game: ActiveGame) => {
       console.log("Game started event received:", game);
 
@@ -133,7 +142,6 @@ export default function Join() {
         return;
       }
 
-      // Reset controller sequence for the new game.
       inputSequenceRef.current = 0;
       inputQueueRef.current = [];
 
@@ -141,14 +149,17 @@ export default function Join() {
       setError("");
     });
 
+    // Game ends
     socket.on("game:ended", () => {
       setActiveGame(null);
       inputQueueRef.current = [];
+      setPressedLane(null);
     });
 
     socket.on("game:result:accepted", () => {
       setActiveGame(null);
       inputQueueRef.current = [];
+      setPressedLane(null);
     });
 
     socket.on("connect_error", (connectionError) => {
@@ -173,71 +184,94 @@ export default function Join() {
       setJoined(false);
       setActiveGame(null);
       setLoading(false);
+      setPressedLane(null);
     });
 
     socket.connect();
   };
 
-  // Send every tap immediately with its own unique identity.
+  // ==========================================
+  // HAPTIC FEEDBACK
+  // ==========================================
 
-const handleControllerTap = (lane: number) => {
-  const socket = socketRef.current;
-
-  if (
-    !socket?.connected ||
-    !activeGame ||
-    activeGame.gameId !== "rhythm-rush"
-  ) {
-    console.warn("Controller input blocked:", {
-      connected: socket?.connected,
-      activeGame,
-    });
-    return;
-  }
-
-  const sequence = ++inputSequenceRef.current;
-
-  // Works on local HTTP connections as well as HTTPS.
-  const eventId =
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${sequence}-${Math.random().toString(36).slice(2)}`;
-
-  const inputEvent = {
-    eventId,
-    sequence,
-    lane,
-    clientPressedAt: Date.now(),
+  const triggerHaptic = () => {
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.vibrate === "function"
+    ) {
+      navigator.vibrate(12);
+    }
   };
 
-  inputQueueRef.current.push(inputEvent);
+  // ==========================================
+  // CONTROLLER INPUT
+  // ==========================================
 
-  console.log("Sending controller input:", inputEvent);
+  const handleControllerTap = (lane: number) => {
+    const socket = socketRef.current;
 
-  socket.emit(
-    "game:input",
-    {
-      type: "tap",
-      ...inputEvent,
-    },
-    (response: { success: boolean; error?: string }) => {
-      if (!response?.success) {
-        console.error("Input rejected:", response?.error);
-        setError(response?.error || "Unable to send controller input.");
-      } else {
-        setError("");
-      }
+    if (
+      !socket?.connected ||
+      !activeGame ||
+      activeGame.gameId !== "rhythm-rush"
+    ) {
+      console.warn("Controller input blocked:", {
+        connected: socket?.connected,
+        activeGame,
+      });
+
+      return;
     }
-  );
-};
 
+    // Immediate physical feedback
+    triggerHaptic();
 
-  const isRhythmRush = activeGame?.gameId === "rhythm-rush";
+    const sequence = ++inputSequenceRef.current;
 
-  // ----------------------------------
+    const eventId =
+      typeof crypto !== "undefined" &&
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${sequence}-${Math.random()
+            .toString(36)
+            .slice(2)}`;
+
+    const inputEvent: ControllerInput = {
+      eventId,
+      sequence,
+      lane,
+      clientPressedAt: Date.now(),
+    };
+
+    inputQueueRef.current.push(inputEvent);
+
+    console.log("Sending controller input:", inputEvent);
+
+    socket.emit(
+      "game:input",
+      {
+        type: "tap",
+        ...inputEvent,
+      },
+      (response: { success: boolean; error?: string }) => {
+        if (!response?.success) {
+          console.error("Input rejected:", response?.error);
+          setError(
+            response?.error || "Unable to send controller input."
+          );
+        } else {
+          setError("");
+        }
+      }
+    );
+  };
+
+  const isRhythmRush =
+    activeGame?.gameId === "rhythm-rush";
+
+  // ==========================================
   // RHYTHM RUSH CONTROLLER
-  // ----------------------------------
+  // ==========================================
 
   if (joined && isRhythmRush) {
     return (
@@ -252,19 +286,21 @@ const handleControllerTap = (lane: number) => {
           display: "flex",
           flexDirection: "column",
           padding:
-            "max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom))",
+            "max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom))",
           boxSizing: "border-box",
           overflow: "hidden",
           userSelect: "none",
+          WebkitUserSelect: "none",
         }}
       >
         {/* SCORE AND COMBO */}
+
         <header
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            padding: "12px 8px 18px",
+            padding: "12px 8px 22px",
             flexShrink: 0,
           }}
         >
@@ -321,51 +357,78 @@ const handleControllerTap = (lane: number) => {
           </div>
         </header>
 
-        {/* FOUR CONTROLLER BUTTONS */}
+        {/* FOUR HORIZONTAL CONTROLLER BUTTONS */}
+
         <div
           style={{
             flex: 1,
             minHeight: 0,
             display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gridTemplateRows: "repeat(2, minmax(0, 1fr))",
-            gap: "12px",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gridTemplateRows: "minmax(0, 1fr)",
+            gap: "9px",
+            alignItems: "stretch",
           }}
         >
-          {controllerLanes.map((lane) => (
-            <button
-              key={lane.id}
-              type="button"
-              aria-label={`Tap lane ${lane.id + 1}`}
-              onPointerDown={(event) => {
-                event.preventDefault();
-                handleControllerTap(lane.id);
-              }}
-              style={{
-                width: "100%",
-                height: "100%",
-                minHeight: 0,
-                border: "none",
-                borderRadius: "24px",
-                background: lane.color,
-                color: "#171321",
-                fontSize: "clamp(34px, 9vw, 54px)",
-                fontWeight: 900,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                touchAction: "none",
-                userSelect: "none",
-                WebkitTapHighlightColor: "transparent",
-                transition: "transform 80ms ease, filter 80ms ease",
-                boxShadow: `0 8px 25px ${lane.color}30`,
-              }}
-              onContextMenu={(event) => event.preventDefault()}
-            >
-              {lane.id + 1}
-            </button>
-          ))}
+          {controllerLanes.map((lane) => {
+            const isPressed = pressedLane === lane.id;
+
+            return (
+              <button
+                key={lane.id}
+                type="button"
+                aria-label={`Tap lane ${lane.id + 1}`}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+
+                  setPressedLane(lane.id);
+                  handleControllerTap(lane.id);
+                }}
+                onPointerUp={() => setPressedLane(null)}
+                onPointerLeave={() => setPressedLane(null)}
+                onPointerCancel={() => setPressedLane(null)}
+                onContextMenu={(event) => event.preventDefault()}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  minWidth: 0,
+                  minHeight: 0,
+                  border: isPressed
+                    ? "3px solid rgba(255,255,255,0.8)"
+                    : "3px solid transparent",
+                  borderRadius: "20px",
+                  background: lane.color,
+                  color: "#171321",
+                  fontSize: "clamp(25px, 8vw, 48px)",
+                  fontWeight: 900,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  touchAction: "none",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  WebkitTapHighlightColor: "transparent",
+                  transform: isPressed
+                    ? "scale(0.94)"
+                    : "scale(1)",
+                  filter: isPressed
+                    ? "brightness(1.2)"
+                    : "brightness(1)",
+                  transition:
+                    "transform 70ms ease, filter 70ms ease, border 70ms ease",
+                  boxShadow: isPressed
+                    ? `0 0 28px ${lane.color}80, inset 0 0 15px rgba(255,255,255,0.2)`
+                    : `0 8px 25px ${lane.color}30`,
+                  outline: "none",
+                  padding: "0",
+                  WebkitAppearance: "none",
+                }}
+              >
+                {lane.id + 1}
+              </button>
+            );
+          })}
         </div>
 
         {error && (
@@ -376,6 +439,7 @@ const handleControllerTap = (lane: number) => {
               fontSize: "12px",
               textAlign: "center",
               paddingTop: "8px",
+              flexShrink: 0,
             }}
           >
             {error}
@@ -385,9 +449,9 @@ const handleControllerTap = (lane: number) => {
     );
   }
 
-  // ----------------------------------
+  // ==========================================
   // JOIN / WAITING / KICKED SCREENS
-  // ----------------------------------
+  // ==========================================
 
   return (
     <main className="join-page">
@@ -497,7 +561,9 @@ const handleControllerTap = (lane: number) => {
                 placeholder="Enter your nickname"
                 maxLength={16}
                 value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
+                onChange={(event) =>
+                  setNickname(event.target.value)
+                }
                 autoComplete="off"
                 disabled={loading}
               />
