@@ -1,10 +1,19 @@
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
 import Discover from "./pages/Discover";
 import MyGames from "./pages/MyGames";
 import TvHost from "./pages/TvHost";
 import Join from "./pages/Join";
+import Remote from "./pages/Remote";
+
+import {
+  HostSessionProvider,
+  useHostSession,
+} from "./context/HostSessionContext";
+
+import { QRCodeSVG } from "qrcode.react";
 
 import {
   Gamepad2,
@@ -74,12 +83,31 @@ const navItems = [
   { name: "My Games", icon: Library, path: "/my-games" },
 ];
 
-function App() {
+function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const {
+    socket,
+    roomCode,
+    pairingToken,
+    remoteConnected,
+    connected,
+  } = useHostSession();
+
   const [mobileMenu, setMobileMenu] = useState(false);
   const [notice, setNotice] = useState("");
+
+  // TV cursor position.
+  const [cursor, setCursor] = useState({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  });
+
+  // Keep the latest position available to socket callbacks.
+  const cursorRef = useRef(cursor);
+
+  const [cursorVisible, setCursorVisible] = useState(false);
 
   const activeNav =
     location.pathname === "/discover"
@@ -88,17 +116,314 @@ function App() {
         ? "My Games"
         : "Home";
 
+  const remoteUrl = pairingToken
+    ? `${window.location.origin}/remote/${roomCode}?token=${encodeURIComponent(pairingToken)}`
+    : "";
+
+  // ==========================================
+  // HOST REMOTE CURSOR AND NAVIGATION
+  // ==========================================
+
+  useEffect(() => {
+    if (!socket || !remoteConnected) {
+      setCursorVisible(false);
+      return;
+    }
+
+    // Start the cursor in the centre of the TV.
+    const initialPosition = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    };
+
+    cursorRef.current = initialPosition;
+    setCursor(initialPosition);
+    setCursorVisible(true);
+
+    let hoveredElement: HTMLElement | null = null;
+
+    // Find the interactive element underneath the cursor.
+    const getInteractiveElement = (
+      x: number,
+      y: number
+    ): HTMLElement | null => {
+      const element = document.elementFromPoint(x, y);
+
+      if (!(element instanceof HTMLElement)) {
+        return null;
+      }
+
+      return element.closest(
+        'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [role="button"], [tabindex]:not([tabindex="-1"])'
+      ) as HTMLElement | null;
+    };
+
+    // Apply hover styling to the element under the cursor.
+    const updateHover = (x: number, y: number) => {
+      const nextElement = getInteractiveElement(x, y);
+
+      if (hoveredElement === nextElement) {
+        return;
+      }
+
+      hoveredElement?.classList.remove("remote-cursor-hover");
+
+      hoveredElement = nextElement;
+
+      hoveredElement?.classList.add("remote-cursor-hover");
+    };
+
+    // Receive cursor movement and click events from the phone.
+    const handleCursor = (data: {
+      type: "move" | "click";
+      dx?: number;
+      dy?: number;
+    }) => {
+      if (data.type === "move") {
+        const current = cursorRef.current;
+
+        const next = {
+          x: Math.max(
+            0,
+            Math.min(
+              window.innerWidth,
+              current.x + (data.dx || 0) * window.innerWidth
+            )
+          ),
+          y: Math.max(
+            0,
+            Math.min(
+              window.innerHeight,
+              current.y + (data.dy || 0) * window.innerHeight
+            )
+          ),
+        };
+
+        cursorRef.current = next;
+        setCursor(next);
+
+        updateHover(next.x, next.y);
+
+        return;
+      }
+
+      if (data.type === "click") {
+        const current = cursorRef.current;
+
+        const element = getInteractiveElement(
+          current.x,
+          current.y
+        );
+
+        element?.click();
+      }
+    };
+
+    // Back and Home controls.
+    const handleRemoteNavigation = (data: {
+      action: string;
+    }) => {
+      if (data.action === "home") {
+        navigate("/");
+        setMobileMenu(false);
+        return;
+      }
+
+      if (data.action === "back") {
+        if (location.pathname === "/") {
+          setMobileMenu(false);
+        } else if (location.pathname === "/host") {
+          navigate("/");
+        } else {
+          navigate(-1);
+        }
+      }
+    };
+
+    socket.on("remote:cursor", handleCursor);
+    socket.on("remote:navigate", handleRemoteNavigation);
+
+    return () => {
+      socket.off("remote:cursor", handleCursor);
+      socket.off("remote:navigate", handleRemoteNavigation);
+
+      hoveredElement?.classList.remove("remote-cursor-hover");
+
+      setCursorVisible(false);
+    };
+  }, [socket, remoteConnected, location.pathname, navigate]);
+
+  // ==========================================
+  // ROOM ACTIONS
+  // ==========================================
+
   const createRoom = () => {
-    setNotice("Room creation will be enabled when we build the backend.");
+    setNotice("");
+    navigate("/host");
   };
 
   const joinRoom = () => {
-    setNotice("Room joining will be enabled when we build QR pairing.");
+    setNotice("Room joining will be enabled in a later stage.");
   };
+
+  // ==========================================
+  // STARTUP PAIRING SCREEN
+  // ==========================================
+
+  if (!remoteConnected) {
+    return (
+      <main
+        style={{
+          minHeight: "100dvh",
+          width: "100%",
+          background:
+            "radial-gradient(circle at 50% 35%, #211a32 0%, #101014 55%, #0c0c10 100%)",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "30px",
+          boxSizing: "border-box",
+          textAlign: "center",
+          fontFamily: "inherit",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "34px",
+            fontWeight: 800,
+            letterSpacing: "1px",
+          }}
+        >
+          PLAYVERSE
+          <span style={{ color: "#A47AFF" }}>.</span>
+        </div>
+
+        <p
+          style={{
+            color: "#aaa",
+            fontSize: "12px",
+            letterSpacing: "2.5px",
+            marginTop: "12px",
+          }}
+        >
+          YOUR GAMING EXPERIENCE STARTS HERE
+        </p>
+
+        <div
+          style={{
+            marginTop: "38px",
+            padding: "16px",
+            background: "#fff",
+            borderRadius: "20px",
+            width: "282px",
+            height: "282px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 20px 80px rgba(164,122,255,0.12)",
+          }}
+        >
+          {remoteUrl ? (
+            <QRCodeSVG
+              value={remoteUrl}
+              size={250}
+              level="H"
+              includeMargin
+            />
+          ) : (
+            <span style={{ color: "#333", fontSize: "13px" }}>
+              {connected
+                ? "Preparing your connection..."
+                : "Connecting to Playverse..."}
+            </span>
+          )}
+        </div>
+
+        <h2
+          style={{
+            marginTop: "32px",
+            marginBottom: "8px",
+            fontSize: "23px",
+            fontWeight: 700,
+          }}
+        >
+          Connect your phone
+        </h2>
+
+        <p
+          style={{
+            color: "#999",
+            maxWidth: "360px",
+            fontSize: "14px",
+            lineHeight: 1.7,
+          }}
+        >
+          Scan the QR code with your phone to connect your
+          Playverse host remote.
+        </p>
+
+        <div
+          style={{
+            marginTop: "24px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "9px",
+            padding: "11px 18px",
+            borderRadius: "30px",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: connected ? "#8fce9d" : "#ff858c",
+            fontSize: "11px",
+            fontWeight: 700,
+            letterSpacing: "1.2px",
+          }}
+        >
+          <span
+            style={{
+              width: "7px",
+              height: "7px",
+              borderRadius: "50%",
+              background: connected ? "#65d68a" : "#ff858c",
+            }}
+          />
+
+          {connected
+            ? "WAITING FOR PHONE"
+            : "CONNECTING TO SERVER"}
+        </div>
+
+        <div
+          style={{
+            marginTop: "24px",
+            color: "#777",
+            fontSize: "12px",
+            letterSpacing: "2px",
+          }}
+        >
+          ROOM CODE: {roomCode}
+        </div>
+
+        <p
+          style={{
+            color: "#666",
+            fontSize: "11px",
+            marginTop: "35px",
+          }}
+        >
+          YOUR PHONE WILL BECOME THE HOST CONTROLLER
+        </p>
+      </main>
+    );
+  }
+
+  // ==========================================
+  // MAIN PLAYVERSE INTERFACE
+  // ==========================================
 
   return (
     <div className="app-shell">
-
       {/* SIDEBAR */}
 
       <aside className={`sidebar ${mobileMenu ? "sidebar-open" : ""}`}>
@@ -176,7 +501,6 @@ function App() {
       {/* MAIN CONTENT */}
 
       <main className="main-content">
-
         {/* TOP NAVIGATION */}
 
         <header className="topbar">
@@ -196,7 +520,7 @@ function App() {
           <div className="topbar-right">
             <div className="network-status">
               <span className="online-indicator" />
-              PREVIEW MODE
+              REMOTE CONNECTED
             </div>
 
             <div className="profile-avatar">P</div>
@@ -206,7 +530,6 @@ function App() {
         {/* PAGE CONTENT */}
 
         <div className="page-container">
-
           {/* HOME PAGE */}
 
           {location.pathname === "/" && (
@@ -446,18 +769,15 @@ function App() {
 
           {/* DISCOVER PAGE */}
 
-          {location.pathname === "/discover" && (
-            <Discover />
-          )}
+          {location.pathname === "/discover" && <Discover />}
 
           {/* MY GAMES PAGE */}
 
           {location.pathname === "/my-games" && <MyGames />}
-          {location.pathname === "/host" && <TvHost />}
-          {location.pathname.startsWith("/join/") && (
-  <Join />
-)}
 
+          {/* HOST PAGE */}
+
+          {location.pathname === "/host" && <TvHost />}
         </div>
       </main>
 
@@ -475,8 +795,88 @@ function App() {
           </button>
         </div>
       )}
+
+      {/* TV REMOTE CURSOR STYLING */}
+
+      <style>{`
+        .remote-cursor-hover {
+          outline: 2px solid #A47AFF !important;
+          outline-offset: 4px !important;
+          box-shadow:
+            0 0 0 5px rgba(164, 122, 255, 0.12),
+            0 0 24px rgba(164, 122, 255, 0.35) !important;
+          transition:
+            outline 100ms ease,
+            box-shadow 100ms ease;
+        }
+
+        .playverse-tv-cursor {
+          position: fixed;
+          z-index: 2147483647;
+          width: 24px;
+          height: 24px;
+          border: 2px solid #fff;
+          border-radius: 50%;
+          background: rgba(164, 122, 255, 0.28);
+          box-shadow:
+            0 0 0 5px rgba(164, 122, 255, 0.18),
+            0 0 22px rgba(164, 122, 255, 0.85);
+          pointer-events: none;
+          transform: translate(-50%, -50%);
+          transition:
+            left 35ms linear,
+            top 35ms linear;
+        }
+
+        .playverse-tv-cursor::after {
+          content: "";
+          position: absolute;
+          width: 5px;
+          height: 5px;
+          left: 50%;
+          top: 50%;
+          border-radius: 50%;
+          background: #fff;
+          transform: translate(-50%, -50%);
+        }
+      `}</style>
+
+      {/* VISIBLE TV CURSOR */}
+
+      {cursorVisible && remoteConnected && (
+        <div
+          className="playverse-tv-cursor"
+          aria-hidden="true"
+          style={{
+            left: `${cursor.x}px`,
+            top: `${cursor.y}px`,
+          }}
+        />
+      )}
     </div>
   );
 }
 
-export default App;
+// ==========================================
+// APPLICATION ENTRY
+// ==========================================
+
+export default function App() {
+  const location = useLocation();
+
+  // Phone remote must not create a TV host session.
+  if (location.pathname.startsWith("/remote/")) {
+    return <Remote />;
+  }
+
+  // Player controller must not create a TV host session.
+  if (location.pathname.startsWith("/join/")) {
+    return <Join />;
+  }
+
+  return (
+    <HostSessionProvider>
+      <AppContent />
+    </HostSessionProvider>
+  );
+}

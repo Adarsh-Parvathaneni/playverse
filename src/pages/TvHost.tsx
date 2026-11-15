@@ -1,16 +1,17 @@
 
-import { useState, useEffect, useRef } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useState, useEffect } from "react";
+
 import {
   Gamepad2,
-  ShieldCheck,
   UserRound,
   UserX,
   Check,
   Play,
+  ShieldCheck,
 } from "lucide-react";
-import { io, type Socket } from "socket.io-client";
+
 import GameRenderer from "../components/GameRenderer";
+import { useHostSession } from "../context/HostSessionContext";
 
 interface Player {
   id: string;
@@ -22,7 +23,6 @@ interface KickResponse {
   success: boolean;
   error?: string;
 }
-
 
 interface GameResponse {
   success: boolean;
@@ -50,7 +50,6 @@ interface GameResponse {
     };
   };
 }
-
 
 const availableGames = [
   {
@@ -83,26 +82,18 @@ const availableGames = [
   },
 ];
 
-function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 6).toUpperCase();
-}
-
 export default function TvHost() {
-  const [roomCode] = useState(() => {
-    const existingRoom = localStorage.getItem("playverse_room_code");
+  const {
+    socket,
+    roomCode,
+    players,
+    remoteConnected,
+  } = useHostSession();
 
-    if (existingRoom) return existingRoom;
-
-    const newRoom = generateRoomCode();
-    localStorage.setItem("playverse_room_code", newRoom);
-
-    return newRoom;
-  });
-
-  const [players, setPlayers] = useState<Player[]>([]);
   const [kickError, setKickError] = useState("");
 
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
+
   const [activeGame, setActiveGame] =
     useState<GameResponse["game"] | null>(null);
 
@@ -110,96 +101,38 @@ export default function TvHost() {
   const [gameError, setGameError] = useState("");
   const [startingGame, setStartingGame] = useState(false);
 
-  const socketRef = useRef<Socket | null>(null);
-
-  const joinUrl = `${window.location.origin}/join/${roomCode}`;
-
-  // ----------------------------------
-  // SOCKET CONNECTION
-  // ----------------------------------
-
+  // Listen for game events using the shared host socket.
   useEffect(() => {
-    const socket = io(
-      `http://${window.location.hostname}:3001`
-    );
+    if (!socket) return;
 
-    socketRef.current = socket;
+    const handleGameStarted = (game: GameResponse["game"]) => {
+      if (!game) return;
 
-    socket.on("connect", () => {
-      socket.emit(
-        "host:register",
-        { roomCode },
-        (response: {
-          success: boolean;
-          error?: string;
-          players?: Player[];
-        }) => {
-          if (response?.success) {
-            setPlayers(response.players || []);
-            console.log("Host registered successfully");
-          } else {
-            console.error(response?.error);
-            setGameError(
-              response?.error || "Unable to register host."
-            );
-          }
-        }
-      );
-    });
+      console.log("Game started:", game);
 
-    socket.on("connect_error", (error) => {
-      console.error("Host connection error:", error.message);
-      setGameError("Unable to connect to the Playverse server.");
-    });
+      setActiveGame(game);
+      setGameStarted(true);
+      setStartingGame(false);
+      setGameError("");
+    };
 
-    // A player joins the room.
-    socket.on("player:joined", (player: Player) => {
-      setPlayers((current) => {
-        if (current.some((p) => p.id === player.id)) {
-          return current;
-        }
-
-        return [...current, player];
-      });
-    });
-
-    // A player leaves or is removed.
-    socket.on("player:left", (player: Player) => {
-      setPlayers((current) =>
-        current.filter((p) => p.id !== player.id)
-      );
-    });
-
-    // Game starts.
-    socket.on(
-      "game:started",
-      (game: GameResponse["game"]) => {
-        if (!game) return;
-
-        console.log("Game started:", game);
-
-        setActiveGame(game);
-        setGameStarted(true);
-        setStartingGame(false);
-        setGameError("");
-      }
-    );
-
-    // Game ends.
-    socket.on("game:ended", () => {
+    const handleGameEnded = () => {
       console.log("Game ended");
 
       setGameStarted(false);
       setActiveGame(null);
       setStartingGame(false);
       setGameError("");
-    });
+    };
+
+    socket.on("game:started", handleGameStarted);
+    socket.on("game:ended", handleGameEnded);
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      socket.off("game:started", handleGameStarted);
+      socket.off("game:ended", handleGameEnded);
     };
-  }, [roomCode]);
+  }, [socket]);
 
   // ----------------------------------
   // KICK PLAYER
@@ -208,7 +141,12 @@ export default function TvHost() {
   const handleKick = (player: Player) => {
     setKickError("");
 
-    socketRef.current?.emit(
+    if (!socket?.connected) {
+      setKickError("Host connection lost. Please refresh.");
+      return;
+    }
+
+    socket.emit(
       "player:kick",
       { playerId: player.id },
       (response: KickResponse) => {
@@ -229,8 +167,6 @@ export default function TvHost() {
     if (!selectedGame || gameStarted || startingGame) {
       return;
     }
-
-    const socket = socketRef.current;
 
     if (!socket?.connected) {
       setGameError(
@@ -278,8 +214,6 @@ export default function TvHost() {
   // ----------------------------------
 
   const handleGameEnd = (result: any) => {
-    const socket = socketRef.current;
-
     if (!socket?.connected) {
       setGameError(
         "Connection lost. Unable to submit game results."
@@ -308,27 +242,25 @@ export default function TvHost() {
   // GAME DISPLAY
   // ----------------------------------
 
-  
-if (gameStarted && activeGame) {
-  return (
-    <GameRenderer
-      gameId={activeGame.gameId}
-      sessionId={activeGame.sessionId || ""}
-      players={players.filter((player) =>
-        activeGame.playerIds
-          ? activeGame.playerIds.includes(player.id)
-          : player.connected
-      )}
-      socket={socketRef.current}
-      settings={activeGame.settings || {}}
-      beatChart={activeGame.beatChart}
-      startAt={activeGame.startAt}
-      rhythmConfig={activeGame.rhythmConfig}
-      onEnd={handleGameEnd}
-    />
-  );
-}
-
+  if (gameStarted && activeGame) {
+    return (
+      <GameRenderer
+        gameId={activeGame.gameId}
+        sessionId={activeGame.sessionId || ""}
+        players={players.filter((player) =>
+          activeGame.playerIds
+            ? activeGame.playerIds.includes(player.id)
+            : player.connected
+        )}
+        socket={socket}
+        settings={activeGame.settings || {}}
+        beatChart={activeGame.beatChart}
+        startAt={activeGame.startAt}
+        rhythmConfig={activeGame.rhythmConfig}
+        onEnd={handleGameEnd}
+      />
+    );
+  }
 
   // ----------------------------------
   // HOST LOBBY DISPLAY
@@ -339,6 +271,7 @@ if (gameStarted && activeGame) {
       <header className="tv-host-header">
         <div className="tv-host-brand">
           <Gamepad2 size={30} />
+
           <span>
             PLAYVERSE<span className="brand-dot">.</span>
           </span>
@@ -350,38 +283,54 @@ if (gameStarted && activeGame) {
         </div>
       </header>
 
-      {/* ROOM PAIRING */}
-
-      <section className="tv-pairing-center">
-        <div className="room-code-label">
-          YOUR ROOM CODE
-        </div>
-
-        <div className="room-code">
-          {roomCode.split("").join(" ")}
-        </div>
-
-        <div className="qr-container">
-          <QRCodeSVG
-            value={joinUrl}
-            size={250}
-            level="H"
-            includeMargin
-          />
-        </div>
-      </section>
-
       <footer className="tv-host-bottom">
         <h1>Ready to play?</h1>
 
         <p>
-          Scan the QR code with your phone to join the game.
+          Your Playverse remote is connected. Choose a game
+          and get everyone ready.
         </p>
+
+        {/* HOST CONNECTION STATUS */}
+
+        <div
+          style={{
+            marginTop: "14px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "9px 14px",
+            borderRadius: "20px",
+            background: remoteConnected
+              ? "rgba(80, 200, 120, 0.12)"
+              : "rgba(255, 255, 255, 0.06)",
+            color: remoteConnected ? "#8fce9d" : "#aaa",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: remoteConnected ? "#65d68a" : "#888",
+            }}
+          />
+
+          {remoteConnected
+            ? "REMOTE CONNECTED"
+            : "REMOTE DISCONNECTED"}
+        </div>
 
         <div className="tv-host-info">
           <div>
             <ShieldCheck size={19} />
             <span>You're the Host</span>
+          </div>
+
+          <div style={{ marginTop: "8px", color: "#aaa" }}>
+            Room code: {roomCode}
           </div>
         </div>
 

@@ -32,32 +32,55 @@ export interface GameRendererProps {
   onEnd: (result: any) => void;
 }
 
+type GameModule = {
+  default: ComponentType<GameRendererProps>;
+};
+
+function loadGame(
+  importer: () => Promise<{ default?: ComponentType<GameRendererProps> }>,
+  gameName: string
+): Promise<GameModule> {
+  return importer().then((module) => {
+    if (!module.default) {
+      throw new Error(
+        `${gameName} does not have a valid default export.`
+      );
+    }
+
+    return { default: module.default };
+  });
+}
+
 type GameComponent = LazyExoticComponent<
   ComponentType<GameRendererProps>
 >;
 
-const RhythmRush: GameComponent = lazy(() =>
-  import("../games/rhythm-rush/RhythmRush").then((module) => ({
-    default: module.default as ComponentType<GameRendererProps>,
-  }))
+const RhythmRush = lazy(() =>
+  loadGame(
+    () => import("../games/rhythm-rush/RhythmRush"),
+    "Rhythm Rush"
+  )
 );
 
-const FruitFrenzy: GameComponent = lazy(() =>
-  import("../games/fruit-frenzy/FruitFrenzy").then((module) => ({
-    default: module.default as ComponentType<GameRendererProps>,
-  }))
+const FruitFrenzy = lazy(() =>
+  loadGame(
+    () => import("../games/fruit-frenzy/FruitFrenzy"),
+    "Fruit Frenzy"
+  )
 );
 
-const SwordClash: GameComponent = lazy(() =>
-  import("../games/sword-clash/SwordClash").then((module) => ({
-    default: module.default as ComponentType<GameRendererProps>,
-  }))
+const SwordClash = lazy(() =>
+  loadGame(
+    () => import("../games/sword-clash/SwordClash"),
+    "Sword Clash"
+  )
 );
 
-const ReflexWars: GameComponent = lazy(() =>
-  import("../games/reflex-wars/ReflexWars").then((module) => ({
-    default: module.default as ComponentType<GameRendererProps>,
-  }))
+const ReflexWars = lazy(() =>
+  loadGame(
+    () => import("../games/reflex-wars/ReflexWars"),
+    "Reflex Wars"
+  )
 );
 
 interface Props {
