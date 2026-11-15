@@ -6,11 +6,29 @@ import {
   type LazyExoticComponent,
 } from "react";
 
+export interface RhythmNote {
+  id: number;
+  lane: number;
+  time: number;
+}
+
+export interface RhythmConfig {
+  durationMs: number;
+  approachTime: number;
+  beatInterval: number;
+  firstNoteTime: number;
+  perfectWindow: number;
+  goodWindow: number;
+}
+
 export interface GameRendererProps {
   sessionId: string;
   players: any[];
   socket: any;
   settings?: Record<string, any>;
+  beatChart?: RhythmNote[];
+  startAt?: number;
+  rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
 }
 
@@ -48,6 +66,9 @@ interface Props {
   players: any[];
   socket: any;
   settings?: Record<string, any>;
+  beatChart?: RhythmNote[];
+  startAt?: number;
+  rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
 }
 
@@ -57,6 +78,9 @@ export default function GameRenderer({
   players,
   socket,
   settings = {},
+  beatChart,
+  startAt,
+  rhythmConfig,
   onEnd,
 }: Props) {
   const gameProps: GameRendererProps = {
@@ -64,6 +88,9 @@ export default function GameRenderer({
     players,
     socket,
     settings,
+    beatChart,
+    startAt,
+    rhythmConfig,
     onEnd,
   };
 

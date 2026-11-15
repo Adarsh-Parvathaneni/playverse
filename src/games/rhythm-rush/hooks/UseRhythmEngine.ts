@@ -36,15 +36,33 @@ interface UseRhythmEngineProps {
   players: any[];
   socket: any;
   durationSeconds?: number;
+  beatChart?: RhythmNote[];
+  startAt?: number;
+  rhythmConfig?: {
+    durationMs: number;
+    approachTime: number;
+    beatInterval: number;
+    firstNoteTime: number;
+    perfectWindow: number;
+    goodWindow: number;
+  };
   onComplete?: (result: any) => void;
 }
 
-const APPROACH_TIME = 2000;
-const PERFECT_WINDOW = 100;
-const GOOD_WINDOW = 220;
+// ==========================================
+// DEFAULT GAME CONFIGURATION
+// ==========================================
+
+const APPROACH_TIME = 3500;
+const PERFECT_WINDOW = 150;
+const GOOD_WINDOW = 300;
 
 const LANES = 4;
 const BEAT_INTERVAL = 500;
+
+// ==========================================
+// FALLBACK BEAT CHART
+// ==========================================
 
 function generateBeatChart(durationMs: number): RhythmNote[] {
   const notes: RhythmNote[] = [];
@@ -52,8 +70,8 @@ function generateBeatChart(durationMs: number): RhythmNote[] {
   let id = 0;
 
   for (
-    let time = 2500;
-    time < durationMs + APPROACH_TIME;
+    let time = 3500;
+    time < durationMs;
     time += BEAT_INTERVAL
   ) {
     const lane = (id * 3 + Math.floor(id / 4)) % LANES;
@@ -70,6 +88,10 @@ function generateBeatChart(durationMs: number): RhythmNote[] {
   return notes;
 }
 
+// ==========================================
+// INITIAL PLAYER STATS
+// ==========================================
+
 function createInitialStats(players: any[]): PlayerStats[] {
   return players.map((player) => ({
     playerId: player.id,
@@ -85,32 +107,85 @@ function createInitialStats(players: any[]): PlayerStats[] {
   }));
 }
 
+// ==========================================
+// RHYTHM ENGINE
+// ==========================================
+
 export function useRhythmEngine({
   players,
   socket,
   durationSeconds = 60,
+  beatChart,
+  startAt,
+  rhythmConfig,
   onComplete,
 }: UseRhythmEngineProps) {
-  const durationMs = durationSeconds * 1000;
+  const durationMs =
+    rhythmConfig?.durationMs ?? durationSeconds * 1000;
+
+  const approachTime =
+    rhythmConfig?.approachTime ?? APPROACH_TIME;
+
+  const perfectWindow =
+    rhythmConfig?.perfectWindow ?? PERFECT_WINDOW;
+
+  const goodWindow =
+    rhythmConfig?.goodWindow ?? GOOD_WINDOW;
+
+  // ----------------------------------------
+  // REACT STATE
+  // ----------------------------------------
 
   const [elapsedMs, setElapsedMs] = useState(0);
   const [notes, setNotes] = useState<ActiveNote[]>([]);
+
   const [scores, setScores] = useState<PlayerStats[]>(() =>
     createInitialStats(players)
   );
+
   const [finished, setFinished] = useState(false);
 
-  const startTimeRef = useRef<number>(0);
-  const frameRef = useRef<number>(0);
+  const [hitFeedback, setHitFeedback] = useState<
+    Record<string, { lane: number; trigger: number }>
+  >({});
+
+  // ----------------------------------------
+  // ENGINE REFS
+  // ----------------------------------------
+
+  const frameRef = useRef<number | null>(null);
+
   const inputEventsRef = useRef<RhythmInputEvent[]>([]);
-  const statsRef = useRef<PlayerStats[]>(createInitialStats(players));
+
+  const statsRef = useRef<PlayerStats[]>(
+    createInitialStats(players)
+  );
+
   const finishedRef = useRef(false);
 
+  // Use the backend-generated chart when available.
   const chartRef = useRef<RhythmNote[]>(
-    generateBeatChart(durationMs)
+    beatChart?.length
+      ? beatChart
+      : generateBeatChart(durationMs)
+  );
+
+  // Use the backend's official start timestamp.
+  const officialStartAtRef = useRef<number>(
+    startAt ?? Date.now()
   );
 
   const processedNotesRef = useRef<Set<string>>(new Set());
+
+  const playersRef = useRef(players);
+  const onCompleteRef = useRef(onComplete);
+
+  playersRef.current = players;
+  onCompleteRef.current = onComplete;
+
+  // ----------------------------------------
+  // UPDATE PLAYER STATS
+  // ----------------------------------------
 
   const updatePlayerStats = useCallback(
     (
@@ -118,7 +193,9 @@ export function useRhythmEngine({
       update: (stats: PlayerStats) => PlayerStats
     ) => {
       const nextStats = statsRef.current.map((player) =>
-        player.playerId === playerId ? update(player) : player
+        player.playerId === playerId
+          ? update(player)
+          : player
       );
 
       statsRef.current = nextStats;
@@ -127,16 +204,16 @@ export function useRhythmEngine({
     []
   );
 
+  // ----------------------------------------
+  // HANDLE PHONE INPUT
+  // ----------------------------------------
+
   const handleInput = useCallback(
     (event: any) => {
       if (finishedRef.current) return;
 
-      if (event.sessionId !== undefined && event.sessionId === null) {
-        return;
-      }
-
-      const playerId = event.playerId;
-      const lane = event.input?.lane;
+      const playerId = event?.playerId;
+      const lane = event?.input?.lane;
 
       if (
         typeof playerId !== "string" ||
@@ -153,11 +230,22 @@ export function useRhythmEngine({
 
       if (!currentPlayer) return;
 
-      const currentTime = Math.min(
-        performance.now() - startTimeRef.current,
-        durationMs
-      );
+      // Use the backend's input receipt timestamp.
+      const receivedAt =
+        typeof event.receivedAt === "number"
+          ? event.receivedAt
+          : Date.now();
 
+      const currentTime =
+        receivedAt - officialStartAtRef.current;
+
+      // Ignore taps before the official game start.
+      if (currentTime < 0 || currentTime > durationMs) {
+        return;
+      }
+
+      // Find the closest unprocessed note
+      // in the lane the player pressed.
       const matchingNotes = chartRef.current
         .filter((note) => {
           const key = `${playerId}-${note.id}`;
@@ -165,7 +253,7 @@ export function useRhythmEngine({
           return (
             note.lane === lane &&
             !processedNotesRef.current.has(key) &&
-            Math.abs(note.time - currentTime) <= GOOD_WINDOW
+            Math.abs(note.time - currentTime) <= goodWindow
           );
         })
         .sort(
@@ -175,6 +263,10 @@ export function useRhythmEngine({
         );
 
       const note = matchingNotes[0];
+
+      // --------------------------------------
+      // INCORRECT INPUT
+      // --------------------------------------
 
       if (!note) {
         updatePlayerStats(playerId, (stats) => ({
@@ -195,14 +287,35 @@ export function useRhythmEngine({
         return;
       }
 
-      const difference = Math.abs(note.time - currentTime);
+      // --------------------------------------
+      // SUCCESSFUL HIT
+      // --------------------------------------
 
-      const isPerfect = difference <= PERFECT_WINDOW;
+      const difference = Math.abs(
+        note.time - currentTime
+      );
+
+      const isPerfect = difference <= perfectWindow;
+
       const points = isPerfect ? 100 : 60;
+
       const result = isPerfect ? "perfect" : "good";
 
-      processedNotesRef.current.add(`${playerId}-${note.id}`);
+      // Each player has independent note processing.
+      processedNotesRef.current.add(
+        `${playerId}-${note.id}`
+      );
 
+      // Trigger the lane hit animation.
+      setHitFeedback((current) => ({
+        ...current,
+        [playerId]: {
+          lane,
+          trigger: performance.now(),
+        },
+      }));
+
+      // Update score.
       updatePlayerStats(playerId, (stats) => {
         const combo = stats.combo + 1;
 
@@ -216,6 +329,7 @@ export function useRhythmEngine({
         };
       });
 
+      // Record input event.
       inputEventsRef.current.push({
         playerId,
         lane,
@@ -224,8 +338,17 @@ export function useRhythmEngine({
         points,
       });
     },
-    [durationMs, updatePlayerStats]
+    [
+      durationMs,
+      goodWindow,
+      perfectWindow,
+      updatePlayerStats,
+    ]
   );
+
+  // ----------------------------------------
+  // SOCKET LISTENER
+  // ----------------------------------------
 
   useEffect(() => {
     if (!socket) return;
@@ -237,23 +360,33 @@ export function useRhythmEngine({
     };
   }, [socket, handleInput]);
 
+  // ----------------------------------------
+  // MAIN GAME LOOP
+  // ----------------------------------------
+
   useEffect(() => {
-    startTimeRef.current = performance.now();
+    finishedRef.current = false;
 
     const gameLoop = () => {
       if (finishedRef.current) return;
 
-      const elapsed = performance.now() - startTimeRef.current;
+      // Synchronize the game clock with the backend.
+      const currentTime =
+        Date.now() - officialStartAtRef.current;
 
-      const currentTime = Math.min(elapsed, durationMs);
+      // Do not display negative elapsed time
+      // while waiting for the official start.
+      setElapsedMs(Math.max(0, currentTime));
 
-      setElapsedMs(currentTime);
+      // ------------------------------------
+      // VISIBLE NOTES
+      // ------------------------------------
 
       const visibleNotes = chartRef.current
         .filter((note) => {
           return (
-            note.time - APPROACH_TIME <= currentTime &&
-            note.time >= currentTime - GOOD_WINDOW
+            note.time - approachTime <= currentTime &&
+            note.time >= currentTime - goodWindow
           );
         })
         .map((note) => ({
@@ -263,13 +396,21 @@ export function useRhythmEngine({
 
       setNotes(visibleNotes);
 
-      chartRef.current.forEach((note) => {
-        if (currentTime <= note.time + GOOD_WINDOW) return;
+      // ------------------------------------
+      // MISSED NOTES
+      // ------------------------------------
 
-        players.forEach((player) => {
+      chartRef.current.forEach((note) => {
+        if (currentTime <= note.time + goodWindow) {
+          return;
+        }
+
+        playersRef.current.forEach((player) => {
           const key = `${player.id}-${note.id}`;
 
-          if (processedNotesRef.current.has(key)) return;
+          if (processedNotesRef.current.has(key)) {
+            return;
+          }
 
           processedNotesRef.current.add(key);
 
@@ -290,13 +431,20 @@ export function useRhythmEngine({
         });
       });
 
-      if (currentTime >= durationMs + APPROACH_TIME) {
+      // ------------------------------------
+      // GAME FINISH
+      // ------------------------------------
+
+      if (currentTime >= durationMs + approachTime) {
         finishedRef.current = true;
+
         setFinished(true);
 
         const finalScores = statsRef.current.map((player) => {
           const total =
-            player.perfect + player.good + player.misses;
+            player.perfect +
+            player.good +
+            player.misses;
 
           const accuracy =
             total === 0
@@ -309,9 +457,11 @@ export function useRhythmEngine({
           };
         });
 
+        statsRef.current = finalScores;
+
         setScores(finalScores);
 
-        onComplete?.({
+        onCompleteRef.current?.({
           duration: durationMs,
           scores: finalScores,
           inputEvents: inputEventsRef.current,
@@ -327,9 +477,37 @@ export function useRhythmEngine({
     frameRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      cancelAnimationFrame(frameRef.current);
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
-  }, [durationMs, players, updatePlayerStats, onComplete]);
+  }, [
+    durationMs,
+    approachTime,
+    goodWindow,
+    updatePlayerStats,
+  ]);
+
+  // ----------------------------------------
+  // NOTES FOR EACH PLAYER
+  // ----------------------------------------
+
+  const getNotesForPlayer = useCallback(
+    (playerId: string) => {
+      return notes.filter(
+        (note) =>
+          !processedNotesRef.current.has(
+            `${playerId}-${note.id}`
+          )
+      );
+    },
+    [notes]
+  );
+
+  // ----------------------------------------
+  // RETURN ENGINE DATA
+  // ----------------------------------------
 
   return {
     elapsedMs,
@@ -337,7 +515,9 @@ export function useRhythmEngine({
     notes,
     scores,
     finished,
+    hitFeedback,
+    getNotesForPlayer,
     inputEvents: inputEventsRef.current,
-    approachTime: APPROACH_TIME,
+    approachTime,
   };
 }

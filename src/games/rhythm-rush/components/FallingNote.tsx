@@ -26,13 +26,16 @@ export default function FallingNote({
     Math.min(1, 1 - (time - elapsedMs) / approachTime)
   );
 
+  // Hit line is positioned at 85% of the lane.
+  const position = progress * 85;
+
   const color = laneColors[lane] ?? "#FFFFFF";
 
   return (
     <div
       className={`rr-note ${status === "missed" ? "rr-note-missed" : ""}`}
       style={{
-        top: `${progress * 100}%`,
+        top: `${position}%`,
         backgroundColor: color,
         boxShadow: `0 0 18px ${color}80`,
       }}

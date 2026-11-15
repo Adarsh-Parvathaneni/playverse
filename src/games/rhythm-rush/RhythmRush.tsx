@@ -1,16 +1,34 @@
 
 import { useCallback } from "react";
-import { useRhythmEngine } from "./hooks/UseRhythmEngine.ts";
+import { useRhythmEngine } from "./hooks/UseRhythmEngine";
 import GameLane from "./components/GameLane";
 import PlayerScore from "./components/PlayerScore";
 import RhythmLeaderboard from "./components/RhythmLeaderboard";
 import "./rhythm-rush.css";
+
+interface RhythmNote {
+  id: number;
+  lane: number;
+  time: number;
+}
+
+interface RhythmConfig {
+  durationMs: number;
+  approachTime: number;
+  beatInterval: number;
+  firstNoteTime: number;
+  perfectWindow: number;
+  goodWindow: number;
+}
 
 interface RhythmRushProps {
   sessionId: string;
   players: any[];
   socket: any;
   settings?: Record<string, any>;
+  beatChart?: RhythmNote[];
+  startAt?: number;
+  rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
 }
 
@@ -21,18 +39,29 @@ const laneColors = [
   "#5EEAD4",
 ];
 
+// ==========================================
+// GAME BOARD
+// ==========================================
+
 function GameBoard({
   engine,
+  playerId,
   playerName,
 }: {
   engine: ReturnType<typeof useRhythmEngine>;
+  playerId: string;
   playerName: string;
 }) {
+  const playerNotes = engine.getNotesForPlayer(playerId);
+  const feedback = engine.hitFeedback[playerId];
+
   return (
     <div className="rr-board">
       <div className="rr-board-header">
         <span>{playerName}</span>
-        <span className="rr-board-label">RHYTHM RUSH</span>
+        <span className="rr-board-label">
+          RHYTHM RUSH
+        </span>
       </div>
 
       <div className="rr-lanes">
@@ -40,9 +69,11 @@ function GameBoard({
           <GameLane
             key={lane}
             laneIndex={lane}
-            notes={engine.notes}
+            notes={playerNotes}
             elapsedMs={engine.elapsedMs}
             approachTime={engine.approachTime}
+            hitActive={feedback?.lane === lane}
+            hitTrigger={feedback?.trigger}
           />
         ))}
       </div>
@@ -58,15 +89,26 @@ function GameBoard({
   );
 }
 
+// ==========================================
+// RHYTHM RUSH
+// ==========================================
+
 export default function RhythmRush({
   sessionId,
   players,
   socket,
   settings = {},
+  beatChart,
+  startAt,
+  rhythmConfig,
   onEnd,
 }: RhythmRushProps) {
   const durationSeconds =
     Number(settings.durationSeconds) || 60;
+
+  // ----------------------------------------
+  // GAME COMPLETION
+  // ----------------------------------------
 
   const handleComplete = useCallback(
     (result: any) => {
@@ -79,12 +121,23 @@ export default function RhythmRush({
     [sessionId, onEnd]
   );
 
+  // ----------------------------------------
+  // RHYTHM ENGINE
+  // ----------------------------------------
+
   const engine = useRhythmEngine({
     players,
     socket,
     durationSeconds,
+    beatChart,
+    startAt,
+    rhythmConfig,
     onComplete: handleComplete,
   });
+
+  // ----------------------------------------
+  // TIMER
+  // ----------------------------------------
 
   const remainingSeconds = Math.max(
     0,
@@ -96,6 +149,10 @@ export default function RhythmRush({
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
 
+  // ----------------------------------------
+  // PLAYER SCORES
+  // ----------------------------------------
+
   const playerStats = players
     .map((player) =>
       engine.scores.find(
@@ -104,10 +161,18 @@ export default function RhythmRush({
     )
     .filter(Boolean);
 
+  // ----------------------------------------
+  // GAME PROGRESS
+  // ----------------------------------------
+
   const progress = Math.min(
     100,
     (engine.elapsedMs / engine.durationMs) * 100
   );
+
+  // ========================================
+  // RENDER
+  // ========================================
 
   return (
     <main className="rhythm-game">
@@ -116,7 +181,9 @@ export default function RhythmRush({
           <div className="rr-eyebrow">
             PLAYVERSE ORIGINAL
           </div>
+
           <h1>RHYTHM RUSH</h1>
+
           <p className="rr-subtitle">
             Hit the beats. Own the rhythm.
           </p>
@@ -124,6 +191,7 @@ export default function RhythmRush({
 
         <div className="rr-timer">
           <span>TIME LEFT</span>
+
           <strong>
             {minutes}:{String(seconds).padStart(2, "0")}
           </strong>
@@ -158,6 +226,7 @@ export default function RhythmRush({
           <GameBoard
             key={player.id}
             engine={engine}
+            playerId={player.id}
             playerName={player.nickname}
           />
         ))}

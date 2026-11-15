@@ -16,8 +16,10 @@ const io = new Server(httpServer, {
   },
 });
 
-// Temporary local room storage.
-// Redis integration will be added when implementing multi-instance deployment.
+// ==========================================
+// ROOM STORAGE
+// ==========================================
+
 const rooms = new Map();
 
 const ALLOWED_GAMES = [
@@ -26,6 +28,46 @@ const ALLOWED_GAMES = [
   "rhythm-rush",
   "reflex-wars",
 ];
+
+// ==========================================
+// RHYTHM RUSH CONFIGURATION
+// ==========================================
+
+const RHYTHM_CONFIG = {
+  durationMs: 60_000,
+  approachTime: 3500,
+  beatInterval: 500,
+  firstNoteTime: 3500,
+  perfectWindow: 150,
+  goodWindow: 300,
+};
+
+function generateRhythmBeatChart(durationMs) {
+  const notes = [];
+  let id = 0;
+
+  for (
+    let time = RHYTHM_CONFIG.firstNoteTime;
+    time < durationMs;
+    time += RHYTHM_CONFIG.beatInterval
+  ) {
+    const lane = (id * 3 + Math.floor(id / 4)) % 4;
+
+    notes.push({
+      id,
+      lane,
+      time,
+    });
+
+    id++;
+  }
+
+  return notes;
+}
+
+// ==========================================
+// ROOM HELPERS
+// ==========================================
 
 function getRoom(roomCode) {
   return rooms.get(roomCode);
@@ -36,7 +78,10 @@ function getPlayers(room) {
 }
 
 function sendError(callback, error) {
-  callback?.({ success: false, error });
+  callback?.({
+    success: false,
+    error,
+  });
 }
 
 function createRoom() {
@@ -47,7 +92,10 @@ function createRoom() {
   };
 }
 
-// Basic validation of submitted game results.
+// ==========================================
+// GAME RESULT VALIDATION
+// ==========================================
+
 function validateGameResult(result, game) {
   if (!result || typeof result !== "object") {
     return "Invalid game result";
@@ -126,15 +174,21 @@ function validateGameResult(result, game) {
   return null;
 }
 
+// ==========================================
+// SOCKET CONNECTION
+// ==========================================
+
 io.on("connection", (socket) => {
   console.log("Device connected:", socket.id);
 
-  // ----------------------------------
+  // ========================================
   // HOST REGISTRATION
-  // ----------------------------------
+  // ========================================
 
   socket.on("host:register", (data = {}, callback) => {
-    const code = String(data.roomCode || "").trim().toUpperCase();
+    const code = String(data.roomCode || "")
+      .trim()
+      .toUpperCase();
 
     if (!code) {
       return sendError(callback, "Invalid room code");
@@ -148,7 +202,10 @@ io.on("connection", (socket) => {
     }
 
     if (room.hostId && room.hostId !== socket.id) {
-      return sendError(callback, "This room already has an active host");
+      return sendError(
+        callback,
+        "This room already has an active host"
+      );
     }
 
     room.hostId = socket.id;
@@ -160,28 +217,45 @@ io.on("connection", (socket) => {
     callback?.({
       success: true,
       players: getPlayers(room),
-      game: room.game,
+      game: room.game
+        ? {
+            sessionId: room.game.sessionId,
+            gameId: room.game.gameId,
+            status: room.game.status,
+            startedAt: room.game.startedAt,
+            playerIds: [...room.game.playerIds],
+          }
+        : null,
     });
 
     console.log(`Host registered for room ${code}`);
   });
 
-  // ----------------------------------
+  // ========================================
   // PLAYER JOIN
-  // ----------------------------------
+  // ========================================
 
   socket.on("player:join", (data = {}, callback) => {
-    const code = String(data.roomCode || "").trim().toUpperCase();
+    const code = String(data.roomCode || "")
+      .trim()
+      .toUpperCase();
+
     const name = String(data.nickname || "").trim();
 
     const room = getRoom(code);
 
     if (!room || !room.hostId) {
-      return sendError(callback, "This room is not currently available");
+      return sendError(
+        callback,
+        "This room is not currently available"
+      );
     }
 
     if (room.game?.status === "playing") {
-      return sendError(callback, "A game is already in progress");
+      return sendError(
+        callback,
+        "A game is already in progress"
+      );
     }
 
     if (!name || name.length > 16) {
@@ -192,7 +266,8 @@ io.on("connection", (socket) => {
     }
 
     const existingPlayer = getPlayers(room).find(
-      (player) => player.nickname.toLowerCase() === name.toLowerCase()
+      (player) =>
+        player.nickname.toLowerCase() === name.toLowerCase()
     );
 
     if (existingPlayer) {
@@ -222,13 +297,16 @@ io.on("connection", (socket) => {
     console.log(`Player socket: ${socket.id}`);
   });
 
-  // ----------------------------------
+  // ========================================
   // GAME START
-  // ----------------------------------
+  // ========================================
 
   socket.on("game:start", (data = {}, callback) => {
     if (socket.data.role !== "host") {
-      return sendError(callback, "Only the host can start a game");
+      return sendError(
+        callback,
+        "Only the host can start a game"
+      );
     }
 
     const code = socket.data.roomCode;
@@ -259,23 +337,64 @@ io.on("connection", (socket) => {
 
     const sessionId = randomUUID();
 
+    // All devices receive the same future start timestamp.
+    const startAt = Date.now() + 3000;
+
+    const durationSeconds = 60;
+    const durationMs = durationSeconds * 1000;
+
+    const rhythmConfig =
+      gameId === "rhythm-rush"
+        ? {
+            ...RHYTHM_CONFIG,
+            durationMs,
+          }
+        : null;
+
+    // Backend generates the authoritative beat chart.
+    const beatChart =
+      gameId === "rhythm-rush"
+        ? generateRhythmBeatChart(durationMs)
+        : [];
+
     const game = {
       sessionId,
       gameId,
       status: "playing",
-      startedAt: Date.now(),
+      startedAt: startAt,
       playerIds: players.map((player) => player.id),
+
+      settings: {
+        durationSeconds,
+      },
+
+      beatChart,
+      rhythmConfig,
+
+      // Reserved for the upcoming server-authoritative engine.
+      scores: {},
+      processedNotes: new Set(),
+      inputEvents: [],
     };
 
     room.game = game;
 
-    // Keep the payload explicit and consistent with Join.tsx.
+    // Public payload shared with TV and phones.
+    // Internal Sets and server-only state are not exposed.
     const publicGame = {
       sessionId: game.sessionId,
       gameId: game.gameId,
       status: game.status,
       startedAt: game.startedAt,
+      startAt: game.startedAt,
+
       playerIds: [...game.playerIds],
+
+      settings: game.settings,
+
+      beatChart: game.beatChart,
+      rhythmConfig: game.rhythmConfig,
+
       players: players.map((player) => ({
         id: player.id,
         nickname: player.nickname,
@@ -288,22 +407,25 @@ io.on("connection", (socket) => {
     console.log(`Session: ${sessionId}`);
     console.log(`Players to notify: ${players.length}`);
 
-    // Explicitly notify the host.
+    if (gameId === "rhythm-rush") {
+      console.log(`Beat chart generated: ${beatChart.length} notes`);
+      console.log(`Official start timestamp: ${startAt}`);
+    }
+
+    // Notify host.
     io.to(socket.id).emit("game:started", publicGame);
+
     console.log("Start event sent to host:", socket.id);
 
-    // Explicitly notify each player.
+    // Notify each connected player.
     for (const player of players) {
       const playerSocket = io.sockets.sockets.get(player.id);
 
       if (playerSocket?.connected) {
         io.to(player.id).emit("game:started", publicGame);
+
         console.log(
           `Start event sent to player: ${player.nickname} (${player.id})`
-        );
-      } else {
-        console.log(
-          `Player is disconnected: ${player.nickname} (${player.id})`
         );
       }
     }
@@ -317,9 +439,9 @@ io.on("connection", (socket) => {
     console.log("----------------------------------");
   });
 
-  // ----------------------------------
+  // ========================================
   // CONTROLLER INPUT RELAY
-  // ----------------------------------
+  // ========================================
 
   socket.on("game:input", (input, callback) => {
     if (socket.data.role !== "player") {
@@ -338,7 +460,10 @@ io.on("connection", (socket) => {
     }
 
     if (!game.playerIds.includes(socket.id)) {
-      return sendError(callback, "You are not part of this game");
+      return sendError(
+        callback,
+        "You are not part of this game"
+      );
     }
 
     if (
@@ -349,22 +474,30 @@ io.on("connection", (socket) => {
       return sendError(callback, "Invalid game input");
     }
 
-    // The display receives the input and handles gameplay.
+    // Current stage: relay input to the TV.
+    // Server-side rhythm judgement will replace this
+    // in the next implementation stage.
+
+    const receivedAt = Date.now();
+
     io.to(room.hostId).emit("game:input", {
       sessionId: game.sessionId,
       gameId: game.gameId,
       playerId: socket.id,
       nickname: room.players.get(socket.id)?.nickname,
       input,
-      receivedAt: Date.now(),
+      receivedAt,
     });
 
-    callback?.({ success: true });
+    callback?.({
+      success: true,
+      receivedAt,
+    });
   });
 
-  // ----------------------------------
+  // ========================================
   // GAME RESULT SUBMISSION
-  // ----------------------------------
+  // ========================================
 
   socket.on("game:result:submit", (result, callback) => {
     if (socket.data.role !== "host") {
@@ -419,16 +552,21 @@ io.on("connection", (socket) => {
       sessionId: game.sessionId,
     });
 
-    console.log(`Results accepted for ${game.gameId} in room ${code}`);
+    console.log(
+      `Results accepted for ${game.gameId} in room ${code}`
+    );
   });
 
-  // ----------------------------------
+  // ========================================
   // MANUAL GAME END
-  // ----------------------------------
+  // ========================================
 
   socket.on("game:end", (callback) => {
     if (socket.data.role !== "host") {
-      return sendError(callback, "Only the host can end a game");
+      return sendError(
+        callback,
+        "Only the host can end a game"
+      );
     }
 
     const code = socket.data.roomCode;
@@ -439,7 +577,10 @@ io.on("connection", (socket) => {
     }
 
     if (room.game.status !== "playing") {
-      return sendError(callback, "Game is not currently running");
+      return sendError(
+        callback,
+        "Game is not currently running"
+      );
     }
 
     room.game.status = "ended";
@@ -447,14 +588,16 @@ io.on("connection", (socket) => {
 
     io.to(code).emit("game:ended");
 
-    callback?.({ success: true });
+    callback?.({
+      success: true,
+    });
 
     console.log(`Game ended in room ${code}`);
   });
 
-  // ----------------------------------
+  // ========================================
   // PLAYER KICK
-  // ----------------------------------
+  // ========================================
 
   socket.on("player:kick", (data = {}, callback) => {
     if (socket.data.role !== "host") {
@@ -497,14 +640,16 @@ io.on("connection", (socket) => {
 
     io.to(socket.id).emit("player:left", player);
 
-    callback?.({ success: true });
+    callback?.({
+      success: true,
+    });
 
     console.log(`${player.nickname} was kicked from room ${code}`);
   });
 
-  // ----------------------------------
+  // ========================================
   // DISCONNECTION
-  // ----------------------------------
+  // ========================================
 
   socket.on("disconnect", () => {
     const code = socket.data.roomCode;
@@ -552,9 +697,9 @@ io.on("connection", (socket) => {
   });
 });
 
-// ----------------------------------
+// ==========================================
 // HEALTH CHECK
-// ----------------------------------
+// ==========================================
 
 app.get("/health", (req, res) => {
   res.json({
@@ -565,9 +710,9 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ----------------------------------
+// ==========================================
 // START SERVER
-// ----------------------------------
+// ==========================================
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`Playverse server running on port ${PORT}`);

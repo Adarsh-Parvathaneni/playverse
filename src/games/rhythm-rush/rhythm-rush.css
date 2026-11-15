@@ -516,3 +516,38 @@ backdrop-filter: blur(12px);
     letter-spacing: 0.5px;
   }
 }
+
+/* =========================================
+   RHYTHM HIT ANIMATIONS
+========================================= */
+
+.rr-hit-box {
+  transform: scale(1);
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.rr-hit-box.rr-hit-active {
+  animation: rhythm-hit-pop 220ms ease-out;
+}
+
+@keyframes rhythm-hit-pop {
+  0% {
+    transform: scale(1);
+    background: color-mix(in srgb, var(--hit-color) 15%, transparent);
+    box-shadow: 0 0 0 transparent;
+  }
+
+  45% {
+    transform: scale(1.12);
+    background: color-mix(in srgb, var(--hit-color) 50%, transparent);
+    box-shadow: 0 0 30px var(--hit-color);
+  }
+
+  100% {
+    transform: scale(1);
+    background: color-mix(in srgb, var(--hit-color) 15%, transparent);
+    box-shadow: 0 0 0 transparent;
+  }
+}

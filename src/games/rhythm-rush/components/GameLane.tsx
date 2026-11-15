@@ -7,7 +7,8 @@ interface GameLaneProps {
   notes: ActiveNote[];
   elapsedMs: number;
   approachTime: number;
-  onHit?: (lane: number) => void;
+  hitActive?: boolean;
+  hitTrigger?: number;
 }
 
 const lanes = [
@@ -38,6 +39,8 @@ export default function GameLane({
   notes,
   elapsedMs,
   approachTime,
+  hitActive = false,
+  hitTrigger,
 }: GameLaneProps) {
   const lane = lanes[laneIndex];
 
@@ -80,11 +83,15 @@ export default function GameLane({
         />
 
         <div
-          className="rr-hit-box"
+          key={hitActive ? hitTrigger : "idle"}
+          className={`rr-hit-box ${
+            hitActive ? "rr-hit-active" : ""
+          }`}
           style={{
             borderColor: `${lane.color}90`,
             background: `${lane.color}15`,
-          }}
+            "--hit-color": lane.color,
+          } as React.CSSProperties}
         />
       </div>
     </div>

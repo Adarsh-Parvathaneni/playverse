@@ -8,7 +8,6 @@ import {
   UserX,
   Check,
   Play,
-  CheckCircle2,
 } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import GameRenderer from "../components/GameRenderer";
@@ -24,6 +23,7 @@ interface KickResponse {
   error?: string;
 }
 
+
 interface GameResponse {
   success: boolean;
   error?: string;
@@ -32,20 +32,25 @@ interface GameResponse {
     gameId: string;
     status: string;
     startedAt: number;
+    startAt?: number;
+    playerIds?: string[];
+    settings?: Record<string, unknown>;
+    beatChart?: {
+      id: number;
+      lane: number;
+      time: number;
+    }[];
+    rhythmConfig?: {
+      durationMs: number;
+      approachTime: number;
+      beatInterval: number;
+      firstNoteTime: number;
+      perfectWindow: number;
+      goodWindow: number;
+    };
   };
 }
 
-interface ControllerInput {
-  sessionId: string;
-  gameId: string;
-  playerId: string;
-  nickname?: string;
-  input: {
-    type?: string;
-    lane?: number;
-  };
-  receivedAt: number;
-}
 
 const availableGames = [
   {
@@ -78,13 +83,6 @@ const availableGames = [
   },
 ];
 
-const laneNames = [
-  "AMETHYST",
-  "ROSE",
-  "APRICOT",
-  "AQUA",
-];
-
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -105,15 +103,12 @@ export default function TvHost() {
   const [kickError, setKickError] = useState("");
 
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
-  const [gameStarted, setGameStarted] = useState(false);
   const [activeGame, setActiveGame] =
     useState<GameResponse["game"] | null>(null);
 
+  const [gameStarted, setGameStarted] = useState(false);
   const [gameError, setGameError] = useState("");
   const [startingGame, setStartingGame] = useState(false);
-
-  const [lastControllerInput, setLastControllerInput] =
-    useState<ControllerInput | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -138,18 +133,9 @@ export default function TvHost() {
           success: boolean;
           error?: string;
           players?: Player[];
-          game?: GameResponse["game"];
         }) => {
           if (response?.success) {
             setPlayers(response.players || []);
-
-            if (response.game) {
-              setActiveGame(response.game);
-              setGameStarted(
-                response.game.status === "playing"
-              );
-            }
-
             console.log("Host registered successfully");
           } else {
             console.error(response?.error);
@@ -188,28 +174,25 @@ export default function TvHost() {
     socket.on(
       "game:started",
       (game: GameResponse["game"]) => {
+        if (!game) return;
+
         console.log("Game started:", game);
 
-        setActiveGame(game ?? null);
+        setActiveGame(game);
         setGameStarted(true);
+        setStartingGame(false);
         setGameError("");
-        setLastControllerInput(null);
       }
     );
 
-    // Receive controller input from the backend.
-    socket.on("game:input", (event: ControllerInput) => {
-      console.log("Controller input received:", event);
-      setLastControllerInput(event);
-    });
-
     // Game ends.
     socket.on("game:ended", () => {
+      console.log("Game ended");
+
       setGameStarted(false);
+      setActiveGame(null);
       setStartingGame(false);
       setGameError("");
-      setLastControllerInput(null);
-      setActiveGame(null);
     });
 
     return () => {
@@ -257,7 +240,6 @@ export default function TvHost() {
     }
 
     setGameError("");
-    setLastControllerInput(null);
     setStartingGame(true);
 
     socket.timeout(5000).emit(
@@ -277,9 +259,11 @@ export default function TvHost() {
         }
 
         if (response?.success && response.game) {
+          console.log("Game started:", response.game);
+
           setActiveGame(response.game);
           setGameStarted(true);
-          console.log("Game started:", response.game);
+          setGameError("");
         } else {
           setGameError(
             response?.error || "Unable to start the game."
@@ -290,77 +274,64 @@ export default function TvHost() {
   };
 
   // ----------------------------------
-  // GAME RESULT CALLBACK
+  // GAME RESULTS
   // ----------------------------------
 
   const handleGameEnd = (result: any) => {
-    console.log("Game completed:", result);
+    const socket = socketRef.current;
 
-    // Result submission will be connected to the
-    // backend validation flow in the next stage.
+    if (!socket?.connected) {
+      setGameError(
+        "Connection lost. Unable to submit game results."
+      );
+      return;
+    }
+
+    socket.emit(
+      "game:result:submit",
+      result,
+      (response: any) => {
+        if (!response?.success) {
+          setGameError(
+            response?.error || "Unable to submit game results."
+          );
+        }
+      }
+    );
   };
-
-  // ----------------------------------
-  // DERIVED VALUES
-  // ----------------------------------
 
   const selectedGameDetails = availableGames.find(
     (game) => game.id === selectedGame
   );
 
-  const laneNumber = lastControllerInput?.input.lane;
+  // ----------------------------------
+  // GAME DISPLAY
+  // ----------------------------------
 
-  const validLane =
-    typeof laneNumber === "number" &&
-    Number.isInteger(laneNumber) &&
-    laneNumber >= 0 &&
-    laneNumber < 4;
-
-  const isRhythmRush =
-    activeGame?.gameId === "rhythm-rush";
   
-    // ----------------------------------
-// ACTIVE GAME SCREEN
-// ----------------------------------
-
-if (gameStarted) {
-  if (
-    activeGame?.gameId === "rhythm-rush" &&
-    activeGame.sessionId
-  ) {
-    return (
-      <GameRenderer
-        gameId="rhythm-rush"
-        sessionId={activeGame.sessionId}
-        players={players}
-        socket={socketRef.current}
-        settings={{
-          durationSeconds: 60,
-        }}
-        onEnd={handleGameEnd}
-      />
-    );
-  }
-
+if (gameStarted && activeGame) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#09090D] text-white">
-      <div className="text-center">
-        <Gamepad2
-          size={48}
-          className="mx-auto mb-4 text-purple-400"
-        />
-        <h2 className="text-2xl font-bold">
-          Preparing game...
-        </h2>
-        <p className="mt-2 text-sm text-white/50">
-          Waiting for the game session details.
-        </p>
-      </div>
-    </main>
+    <GameRenderer
+      gameId={activeGame.gameId}
+      sessionId={activeGame.sessionId || ""}
+      players={players.filter((player) =>
+        activeGame.playerIds
+          ? activeGame.playerIds.includes(player.id)
+          : player.connected
+      )}
+      socket={socketRef.current}
+      settings={activeGame.settings || {}}
+      beatChart={activeGame.beatChart}
+      startAt={activeGame.startAt}
+      rhythmConfig={activeGame.rhythmConfig}
+      onEnd={handleGameEnd}
+    />
   );
 }
+
+
   // ----------------------------------
-  // DISPLAY
+  // HOST LOBBY DISPLAY
   // ----------------------------------
 
   return (
@@ -379,8 +350,6 @@ if (gameStarted) {
         </div>
       </header>
 
-      {/* ACTIVE GAME DISPLAY */}
-    
       {/* ROOM PAIRING */}
 
       <section className="tv-pairing-center">
@@ -529,7 +498,6 @@ if (gameStarted) {
                     type="button"
                     onClick={() => handleKick(player)}
                     title={`Remove ${player.nickname}`}
-                    disabled={gameStarted || startingGame}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -539,9 +507,7 @@ if (gameStarted) {
                       border: "1px solid rgba(255, 100, 110, 0.25)",
                       background: "rgba(255, 75, 85, 0.09)",
                       color: "#ff858c",
-                      cursor: gameStarted
-                        ? "not-allowed"
-                        : "pointer",
+                      cursor: "pointer",
                       fontSize: "13px",
                       fontWeight: 600,
                     }}
@@ -594,16 +560,13 @@ if (gameStarted) {
                 <button
                   key={game.id}
                   type="button"
-                  disabled={gameStarted || startingGame}
+                  disabled={startingGame}
                   onClick={() => setSelectedGame(game.id)}
                   style={{
                     padding: "18px",
                     borderRadius: "15px",
                     textAlign: "left",
-                    cursor:
-                      gameStarted || startingGame
-                        ? "not-allowed"
-                        : "pointer",
+                    cursor: startingGame ? "not-allowed" : "pointer",
                     border: isSelected
                       ? "2px solid #a47aff"
                       : "1px solid rgba(180, 150, 255, 0.2)",
@@ -612,7 +575,6 @@ if (gameStarted) {
                       : "rgba(255, 255, 255, 0.035)",
                     color: "white",
                     transition: "all 0.2s ease",
-                    opacity: gameStarted ? 0.65 : 1,
                   }}
                 >
                   <div
@@ -712,20 +674,12 @@ if (gameStarted) {
 
             <span
               style={{
-                color: gameStarted
-                  ? "#8fce9d"
-                  : selectedGame
-                    ? "#b99aff"
-                    : "#777",
+                color: selectedGame ? "#b99aff" : "#777",
                 fontSize: "12px",
                 fontWeight: 700,
               }}
             >
-              {gameStarted
-                ? "PLAYING"
-                : selectedGame
-                  ? "READY"
-                  : "WAITING"}
+              {selectedGame ? "READY" : "WAITING"}
             </span>
           </div>
 
@@ -734,26 +688,22 @@ if (gameStarted) {
           <button
             type="button"
             onClick={handleStartGame}
-            disabled={
-              !selectedGame || gameStarted || startingGame
-            }
+            disabled={!selectedGame || startingGame}
             style={{
               width: "100%",
               marginTop: "14px",
               padding: "16px",
               borderRadius: "12px",
               border: "none",
-              background:
-                selectedGame && !gameStarted
-                  ? "linear-gradient(135deg, #8955e8, #6336bc)"
-                  : "rgba(255, 255, 255, 0.07)",
-              color:
-                selectedGame && !gameStarted ? "white" : "#777",
+              background: selectedGame
+                ? "linear-gradient(135deg, #8955e8, #6336bc)"
+                : "rgba(255, 255, 255, 0.07)",
+              color: selectedGame ? "white" : "#777",
               fontSize: "14px",
               fontWeight: 700,
               letterSpacing: "1px",
               cursor:
-                selectedGame && !gameStarted && !startingGame
+                selectedGame && !startingGame
                   ? "pointer"
                   : "not-allowed",
               display: "flex",
@@ -762,17 +712,8 @@ if (gameStarted) {
               gap: "9px",
             }}
           >
-            {gameStarted ? (
-              <>
-                <CheckCircle2 size={17} />
-                GAME STARTED
-              </>
-            ) : (
-              <>
-                <Play size={17} />
-                {startingGame ? "STARTING GAME..." : "START GAME"}
-              </>
-            )}
+            <Play size={17} />
+            {startingGame ? "STARTING GAME..." : "START GAME"}
           </button>
 
           {gameError && (
@@ -786,64 +727,6 @@ if (gameStarted) {
             >
               {gameError}
             </p>
-          )}
-
-          {/* TEMPORARY CONTROLLER INPUT TEST */}
-
-          {gameStarted && !isRhythmRush && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "18px",
-                borderRadius: "14px",
-                background: "rgba(157, 111, 255, 0.08)",
-                border: "1px solid rgba(180, 150, 255, 0.2)",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: "15px",
-                }}
-              >
-                Controller connection test
-              </h3>
-
-              {lastControllerInput ? (
-                <>
-                  <p
-                    style={{
-                      color: "#b99aff",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {lastControllerInput.nickname || "Player"}{" "}
-                    pressed{" "}
-                    {validLane
-                      ? `lane ${laneNumber + 1} (${laneNames[laneNumber]})`
-                      : "a controller button"}
-                  </p>
-
-                  <span
-                    style={{
-                      color: "#aaa",
-                      fontSize: "12px",
-                    }}
-                  >
-                    Input received successfully
-                  </span>
-                </>
-              ) : (
-                <p
-                  style={{
-                    color: "#aaa",
-                    fontSize: "13px",
-                  }}
-                >
-                  Waiting for controller input...
-                </p>
-              )}
-            </div>
           )}
         </section>
       </footer>

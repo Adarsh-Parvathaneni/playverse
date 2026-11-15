@@ -27,6 +27,13 @@ type ActiveGame = {
   playerIds?: string[];
 };
 
+type ControllerInput = {
+  eventId: string;
+  sequence: number;
+  lane: number;
+  clientPressedAt: number;
+};
+
 const controllerLanes = [
   { id: 0, color: "#9B7BFF" },
   { id: 1, color: "#F472B6" },
@@ -47,7 +54,13 @@ export default function Join() {
   const [joined, setJoined] = useState(false);
   const [kicked, setKicked] = useState(false);
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
+
   const socketRef = useRef<Socket | null>(null);
+
+  // Controller input tracking
+  const inputSequenceRef = useRef(0);
+
+  const inputQueueRef = useRef<ControllerInput[]>([]);
 
   useEffect(() => {
     return () => {
@@ -87,7 +100,10 @@ export default function Join() {
           roomCode: code,
           nickname: name,
         },
-        (timeoutError: Error | null, response: JoinResponse) => {
+        (
+          timeoutError: Error | null,
+          response: JoinResponse
+        ) => {
           if (timeoutError) {
             setError("Server did not respond. Please try again.");
             setLoading(false);
@@ -117,20 +133,27 @@ export default function Join() {
         return;
       }
 
+      // Reset controller sequence for the new game.
+      inputSequenceRef.current = 0;
+      inputQueueRef.current = [];
+
       setActiveGame(game);
       setError("");
     });
 
     socket.on("game:ended", () => {
       setActiveGame(null);
+      inputQueueRef.current = [];
     });
 
     socket.on("game:result:accepted", () => {
       setActiveGame(null);
+      inputQueueRef.current = [];
     });
 
     socket.on("connect_error", (connectionError) => {
       console.error("Connection failed:", connectionError.message);
+
       setError("Cannot reach the Playverse server. Check your connection.");
       setLoading(false);
       socket.disconnect();
@@ -142,6 +165,7 @@ export default function Join() {
       setActiveGame(null);
       setLoading(false);
       setError(data?.message || "The host removed you from this room.");
+
       socket.disconnect();
     });
 
@@ -154,33 +178,60 @@ export default function Join() {
     socket.connect();
   };
 
-  const handleControllerTap = (lane: number) => {
-    const socket = socketRef.current;
+  // Send every tap immediately with its own unique identity.
 
-    if (
-      !socket?.connected ||
-      !activeGame ||
-      activeGame.gameId !== "rhythm-rush"
-    ) {
-      return;
-    }
+const handleControllerTap = (lane: number) => {
+  const socket = socketRef.current;
 
-    socket.emit(
-      "game:input",
-      {
-        type: "tap",
-        lane,
-      },
-      (response: { success: boolean; error?: string }) => {
-        if (!response?.success) {
-          setError(response?.error || "Unable to send controller input.");
-          return;
-        }
+  if (
+    !socket?.connected ||
+    !activeGame ||
+    activeGame.gameId !== "rhythm-rush"
+  ) {
+    console.warn("Controller input blocked:", {
+      connected: socket?.connected,
+      activeGame,
+    });
+    return;
+  }
 
+  const sequence = ++inputSequenceRef.current;
+
+  // Works on local HTTP connections as well as HTTPS.
+  const eventId =
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${sequence}-${Math.random().toString(36).slice(2)}`;
+
+  const inputEvent = {
+    eventId,
+    sequence,
+    lane,
+    clientPressedAt: Date.now(),
+  };
+
+  inputQueueRef.current.push(inputEvent);
+
+  console.log("Sending controller input:", inputEvent);
+
+  socket.emit(
+    "game:input",
+    {
+      type: "tap",
+      ...inputEvent,
+    },
+    (response: { success: boolean; error?: string }) => {
+      if (!response?.success) {
+        console.error("Input rejected:", response?.error);
+        setError(response?.error || "Unable to send controller input.");
+      } else {
         setError("");
       }
-    );
-  };
+    }
+  );
+};
+
 
   const isRhythmRush = activeGame?.gameId === "rhythm-rush";
 
@@ -200,7 +251,8 @@ export default function Join() {
           background: "#100D19",
           display: "flex",
           flexDirection: "column",
-          padding: "max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom))",
+          padding:
+            "max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom))",
           boxSizing: "border-box",
           overflow: "hidden",
           userSelect: "none",
@@ -228,6 +280,7 @@ export default function Join() {
             >
               SCORE
             </div>
+
             <div
               style={{
                 color: "#FFFFFF",
@@ -253,6 +306,7 @@ export default function Join() {
             >
               COMBO
             </div>
+
             <div
               style={{
                 color: "#FFFFFF",
@@ -332,7 +386,7 @@ export default function Join() {
   }
 
   // ----------------------------------
-  // KICKED SCREEN
+  // JOIN / WAITING / KICKED SCREENS
   // ----------------------------------
 
   return (
@@ -367,7 +421,10 @@ export default function Join() {
             </div>
 
             {error && (
-              <span role="alert" style={{ color: "#ff7777", fontSize: "13px" }}>
+              <span
+                role="alert"
+                style={{ color: "#ff7777", fontSize: "13px" }}
+              >
                 {error}
               </span>
             )}
@@ -446,7 +503,10 @@ export default function Join() {
               />
 
               {error && (
-                <span role="alert" style={{ color: "#ff7777", fontSize: "13px" }}>
+                <span
+                  role="alert"
+                  style={{ color: "#ff7777", fontSize: "13px" }}
+                >
                   {error}
                 </span>
               )}
