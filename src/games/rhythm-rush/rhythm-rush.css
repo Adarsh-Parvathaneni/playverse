@@ -1,0 +1,518 @@
+
+/* =========================================
+   RHYTHM RUSH
+========================================= */
+
+.rhythm-game {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 30px clamp(20px, 4vw, 64px);
+  background:
+    radial-gradient(ellipse at 50% 0%, #211633 0%, transparent 48%),
+    #09090d;
+  color: #f8f7fc;
+  font-family: Inter, sans-serif;
+  box-sizing: border-box;
+}
+
+.rhythm-game *,
+.rhythm-game *::before,
+.rhythm-game *::after {
+  box-sizing: border-box;
+}
+
+.rhythm-game h1,
+.rhythm-game h2,
+.rhythm-game p {
+  margin-top: 0;
+}
+
+/* HEADER */
+
+.rr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1500px;
+  margin: 0 auto 22px;
+}
+
+.rr-eyebrow {
+  color: #b69bfa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+}
+
+.rr-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
+
+.rr-subtitle {
+  color: #92899e;
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+
+.rr-timer {
+  min-width: 125px;
+  padding: 13px 20px;
+  text-align: center;
+  border: 1px solid #ffffff17;
+  border-radius: 13px;
+  background: #ffffff08;
+}
+
+.rr-timer span,
+.rr-timer strong {
+  display: block;
+}
+
+.rr-timer span {
+  color: #9990a9;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.rr-timer strong {
+  margin-top: 5px;
+  font-size: 30px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* PROGRESS */
+
+.rr-progress-track {
+  width: 100%;
+  max-width: 1500px;
+  height: 5px;
+  margin: 0 auto 22px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #ffffff13;
+}
+
+.rr-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9b7bff, #f472b6);
+  transition: width 100ms linear;
+}
+
+/* PLAYER SCORES */
+
+.rr-scores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1500px;
+  margin: 0 auto 20px;
+}
+
+.rr-player-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid #ffffff12;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #191522, #111016);
+}
+
+.rr-player-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 90px;
+}
+
+.rr-player-identity strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.rr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: center;
+}
+
+.rr-stat-label {
+  color: #837b91;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.rr-score-number {
+  font-size: 23px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-combo {
+  color: #b69bfa;
+  font-size: 19px;
+}
+
+.rr-accuracy {
+  color: #5eead4;
+  font-size: 19px;
+}
+
+.rr-hit-stats {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-left: 16px;
+  border-left: 1px solid #ffffff16;
+}
+
+.rr-hit-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.rr-hit-stats span {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.rr-perfect {
+  color: #5ee6a8;
+}
+
+.rr-good {
+  color: #fbbf64;
+}
+
+.rr-miss {
+  color: #fb7185;
+}
+
+/* GAME BOARDS */
+
+.rr-game-boards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.rr-game-boards.rr-two-player {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rr-board {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: clamp(380px, 54vh, 600px);
+  overflow: hidden;
+  border: 1px solid #ffffff16;
+  border-radius: 16px;
+  background: #101014;
+  box-shadow: 0 12px 40px #0003;
+}
+
+.rr-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 17px;
+  border-bottom: 1px solid #ffffff12;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rr-board-label {
+  color: #81778f;
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.rr-lanes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rr-lane {
+  position: relative;
+  flex: 1 1 25%;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid #ffffff0c;
+}
+
+.rr-lane:last-child {
+  border-right: 0;
+}
+
+.rr-lane-heading {
+  position: absolute;
+  z-index: 2;
+  top: 13px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+}
+
+/* FALLING NOTES */
+
+.rr-note {
+  position: absolute;
+  z-index: 3;
+  left: 10%;
+  width: 80%;
+  height: 15px;
+  border-radius: 7px;
+  transform: translateY(-50%);
+  transition: opacity 100ms ease;
+}
+
+.rr-note-missed {
+  opacity: 0.3;
+}
+
+/* HIT ZONE */
+
+.rr-hit-zone {
+  position: absolute;
+  z-index: 2;
+  left: 7%;
+  right: 7%;
+  bottom: 15%;
+}
+
+.rr-hit-line {
+  height: 3px;
+  border-radius: 10px;
+}
+
+.rr-hit-box {
+  height: 42px;
+  margin-top: 8px;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+/* LANE KEY LABELS */
+
+.rr-lane-keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 35px;
+  border-top: 1px solid #ffffff12;
+  background: #ffffff05;
+}
+
+.rr-lane-keys div {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #ffffff0c;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* LEADERBOARD */
+
+.rr-leaderboard-section {
+  max-width: 1500px;
+  margin: 18px auto 0;
+}
+
+.rr-leaderboard {
+  padding: 18px 22px;
+  border: 1px solid #ffffff12;
+  border-radius: 14px;
+  background: #ffffff06;
+}
+
+.rr-leaderboard-heading {
+  margin-bottom: 15px;
+  color: #93899f;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.rr-leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rr-leaderboard-row,
+.rr-leaderboard-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rr-leaderboard-row strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-leaderboard-player {
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.rr-rank {
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rr-leaderboard-name {
+  overflow: hidden;
+  color: #eeeaf6;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rr-empty {
+  margin: 0;
+  color: #81778f;
+  font-size: 12px;
+}
+
+/* RESULTS */
+
+.rr-results-overlay {
+  position: fixed;
+  z-index: 10001;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #08070df2;
+  -webkit-backdrop-filter: blur(12px);
+backdrop-filter: blur(12px);
+}
+
+.rr-results {
+  width: min(560px, 100%);
+  padding: 32px;
+  border: 1px solid #ffffff1c;
+  border-radius: 20px;
+  background: #17131f;
+  box-shadow: 0 20px 80px #0008;
+}
+
+.rr-results h2 {
+  margin: 0 0 24px;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.rr-results > p {
+  margin: 18px 0 0;
+  color: #92899e;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 950px) {
+  .rr-player-score {
+    gap: 12px;
+    padding: 13px;
+  }
+
+  .rr-hit-stats {
+    gap: 10px;
+    padding-left: 10px;
+  }
+
+  .rr-score-number {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 700px) {
+  .rhythm-game {
+    padding: 18px 12px;
+  }
+
+  .rr-scores {
+    grid-template-columns: 1fr;
+  }
+
+  .rr-game-boards.rr-two-player {
+    grid-template-columns: 1fr;
+  }
+
+  .rr-board {
+    height: 440px;
+  }
+
+  .rr-header h1 {
+    font-size: 27px;
+  }
+
+  .rr-timer {
+    min-width: 95px;
+    padding: 10px;
+  }
+
+  .rr-timer strong {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 450px) {
+  .rr-player-score {
+    justify-content: space-between;
+  }
+
+  .rr-hit-stats {
+    width: 100%;
+    justify-content: space-around;
+    padding: 10px 0 0;
+    border-left: 0;
+    border-top: 1px solid #ffffff16;
+  }
+
+  .rr-lane-heading {
+    font-size: 7px;
+    letter-spacing: 0.5px;
+  }
+}

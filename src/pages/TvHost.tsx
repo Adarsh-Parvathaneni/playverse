@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
+import GameRenderer from "../components/GameRenderer";
 
 interface Player {
   id: string;
@@ -105,6 +106,9 @@ export default function TvHost() {
 
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [activeGame, setActiveGame] =
+    useState<GameResponse["game"] | null>(null);
+
   const [gameError, setGameError] = useState("");
   const [startingGame, setStartingGame] = useState(false);
 
@@ -134,9 +138,18 @@ export default function TvHost() {
           success: boolean;
           error?: string;
           players?: Player[];
+          game?: GameResponse["game"];
         }) => {
           if (response?.success) {
             setPlayers(response.players || []);
+
+            if (response.game) {
+              setActiveGame(response.game);
+              setGameStarted(
+                response.game.status === "playing"
+              );
+            }
+
             console.log("Host registered successfully");
           } else {
             console.error(response?.error);
@@ -172,18 +185,21 @@ export default function TvHost() {
     });
 
     // Game starts.
-    socket.on("game:started", (game: GameResponse["game"]) => {
-      console.log("Game started:", game);
+    socket.on(
+      "game:started",
+      (game: GameResponse["game"]) => {
+        console.log("Game started:", game);
 
-      setGameStarted(true);
-      setGameError("");
-      setLastControllerInput(null);
-    });
+        setActiveGame(game ?? null);
+        setGameStarted(true);
+        setGameError("");
+        setLastControllerInput(null);
+      }
+    );
 
     // Receive controller input from the backend.
     socket.on("game:input", (event: ControllerInput) => {
       console.log("Controller input received:", event);
-
       setLastControllerInput(event);
     });
 
@@ -193,6 +209,7 @@ export default function TvHost() {
       setStartingGame(false);
       setGameError("");
       setLastControllerInput(null);
+      setActiveGame(null);
     });
 
     return () => {
@@ -259,7 +276,8 @@ export default function TvHost() {
           return;
         }
 
-        if (response?.success) {
+        if (response?.success && response.game) {
+          setActiveGame(response.game);
           setGameStarted(true);
           console.log("Game started:", response.game);
         } else {
@@ -271,12 +289,26 @@ export default function TvHost() {
     );
   };
 
+  // ----------------------------------
+  // GAME RESULT CALLBACK
+  // ----------------------------------
+
+  const handleGameEnd = (result: any) => {
+    console.log("Game completed:", result);
+
+    // Result submission will be connected to the
+    // backend validation flow in the next stage.
+  };
+
+  // ----------------------------------
+  // DERIVED VALUES
+  // ----------------------------------
+
   const selectedGameDetails = availableGames.find(
     (game) => game.id === selectedGame
   );
 
-  const laneNumber =
-    lastControllerInput?.input.lane;
+  const laneNumber = lastControllerInput?.input.lane;
 
   const validLane =
     typeof laneNumber === "number" &&
@@ -284,6 +316,49 @@ export default function TvHost() {
     laneNumber >= 0 &&
     laneNumber < 4;
 
+  const isRhythmRush =
+    activeGame?.gameId === "rhythm-rush";
+  
+    // ----------------------------------
+// ACTIVE GAME SCREEN
+// ----------------------------------
+
+if (gameStarted) {
+  if (
+    activeGame?.gameId === "rhythm-rush" &&
+    activeGame.sessionId
+  ) {
+    return (
+      <GameRenderer
+        gameId="rhythm-rush"
+        sessionId={activeGame.sessionId}
+        players={players}
+        socket={socketRef.current}
+        settings={{
+          durationSeconds: 60,
+        }}
+        onEnd={handleGameEnd}
+      />
+    );
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#09090D] text-white">
+      <div className="text-center">
+        <Gamepad2
+          size={48}
+          className="mx-auto mb-4 text-purple-400"
+        />
+        <h2 className="text-2xl font-bold">
+          Preparing game...
+        </h2>
+        <p className="mt-2 text-sm text-white/50">
+          Waiting for the game session details.
+        </p>
+      </div>
+    </main>
+  );
+}
   // ----------------------------------
   // DISPLAY
   // ----------------------------------
@@ -304,6 +379,8 @@ export default function TvHost() {
         </div>
       </header>
 
+      {/* ACTIVE GAME DISPLAY */}
+    
       {/* ROOM PAIRING */}
 
       <section className="tv-pairing-center">
@@ -452,6 +529,7 @@ export default function TvHost() {
                     type="button"
                     onClick={() => handleKick(player)}
                     title={`Remove ${player.nickname}`}
+                    disabled={gameStarted || startingGame}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -461,7 +539,9 @@ export default function TvHost() {
                       border: "1px solid rgba(255, 100, 110, 0.25)",
                       background: "rgba(255, 75, 85, 0.09)",
                       color: "#ff858c",
-                      cursor: "pointer",
+                      cursor: gameStarted
+                        ? "not-allowed"
+                        : "pointer",
                       fontSize: "13px",
                       fontWeight: 600,
                     }}
@@ -710,7 +790,7 @@ export default function TvHost() {
 
           {/* TEMPORARY CONTROLLER INPUT TEST */}
 
-          {gameStarted && (
+          {gameStarted && !isRhythmRush && (
             <div
               style={{
                 marginTop: "20px",
