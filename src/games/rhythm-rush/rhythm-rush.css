@@ -14,14 +14,26 @@
 }
 
 /* ==========================================
-   GAME SCREEN
+   GAME SCREEN - FULL VIEWPORT
 ========================================== */
 
 .rhythm-game {
+  position: fixed;
+  inset: 0;
+
   width: 100%;
-  min-height: 100vh;
-  padding: 35px 4%;
-  overflow-x: hidden;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: clamp(12px, 2.5vh, 28px)
+    clamp(18px, 3.6vw, 60px);
+
+  overflow: hidden;
+
   background:
     radial-gradient(
       ellipse at 50% 0%,
@@ -29,6 +41,7 @@
       transparent 60%
     ),
     #090811;
+
   color: #f8f7fc;
 }
 
@@ -40,8 +53,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 25px;
+
+  gap: 20px;
+  flex-shrink: 0;
+
+  margin-bottom: clamp(12px, 2vh, 22px);
 }
 
 .rr-eyebrow {
@@ -52,8 +68,9 @@
 }
 
 .rr-header h1 {
-  margin: 10px 0 5px;
-  font-size: clamp(28px, 3vw, 42px);
+  margin: 6px 0 4px;
+
+  font-size: clamp(26px, 3vw, 42px);
   font-weight: 900;
   letter-spacing: -1.5px;
 }
@@ -72,11 +89,17 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 5px;
-  padding: 14px 22px;
+
+  gap: 4px;
+
+  padding: 10px 20px;
+
   border: 1px solid #ffffff15;
   border-radius: 14px;
+
   background: #171322;
+
+  flex-shrink: 0;
 }
 
 .rr-timer span {
@@ -88,7 +111,7 @@
 
 .rr-timer strong {
   color: #c4a7ff;
-  font-size: 34px;
+  font-size: clamp(25px, 3vw, 36px);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
@@ -100,21 +123,30 @@
 .rr-progress-track {
   width: 100%;
   height: 5px;
-  margin-bottom: 25px;
+
+  margin-bottom: clamp(12px, 2vh, 22px);
+
   overflow: hidden;
   border-radius: 20px;
+
   background: #ffffff12;
+
+  flex-shrink: 0;
 }
 
 .rr-progress-fill {
   height: 100%;
+
   border-radius: inherit;
+
   background: linear-gradient(
     90deg,
     #9b7bff,
     #e879f9
   );
+
   box-shadow: 0 0 15px #9b7bff80;
+
   transition: width 100ms linear;
 }
 
@@ -124,21 +156,31 @@
 
 .rr-scores {
   display: grid;
+
   grid-template-columns: repeat(
     auto-fit,
     minmax(230px, 1fr)
   );
-  gap: 15px;
-  margin-bottom: 28px;
+
+  gap: 12px;
+
+  margin-bottom: clamp(12px, 2vh, 20px);
+
+  flex-shrink: 0;
 }
 
 .rr-player-score {
   display: grid;
+
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  padding: 17px;
+
+  gap: 12px;
+
+  padding: clamp(12px, 1.5vh, 17px);
+
   border: 1px solid #ffffff14;
   border-radius: 15px;
+
   background: linear-gradient(
     145deg,
     #1b1727,
@@ -148,11 +190,15 @@
 
 .rr-player-identity {
   grid-column: 1 / -1;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 10px;
-  padding-bottom: 12px;
+
+  padding-bottom: 10px;
+
   border-bottom: 1px solid #ffffff12;
 }
 
@@ -165,7 +211,8 @@
 .rr-stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+
+  gap: 5px;
   min-width: 0;
 }
 
@@ -200,17 +247,21 @@
 
 .rr-hit-stats {
   grid-column: 1 / -1;
+
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+
   gap: 8px;
-  padding-top: 12px;
+
+  padding-top: 10px;
+
   border-top: 1px solid #ffffff12;
 }
 
 .rr-hit-stats > div {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .rr-hit-stats span {
@@ -237,27 +288,40 @@
 }
 
 /* ==========================================
-   GAME BOARDS
+   GAME BOARDS - FILL REMAINING SPACE
 ========================================== */
 
 .rr-game-boards {
   display: grid;
+
   grid-template-columns: repeat(
     auto-fit,
     minmax(250px, 1fr)
   );
-  gap: 20px;
+
+  gap: 16px;
+
   width: 100%;
+
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 .rr-board {
   display: flex;
   flex-direction: column;
+
   min-width: 0;
-  padding: 15px;
+  min-height: 0;
+
+  padding: 12px;
+
   border: 1px solid #ffffff15;
   border-radius: 18px;
+
   background: #13101e;
+
   overflow: hidden;
 }
 
@@ -265,8 +329,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 10px;
-  margin-bottom: 14px;
+
+  margin-bottom: 10px;
+
+  flex-shrink: 0;
 }
 
 .rr-board-header > span:first-child {
@@ -288,29 +356,46 @@
 
 .rr-lanes {
   display: grid;
+
   grid-template-columns: repeat(4, minmax(0, 1fr));
+
   gap: 5px;
+
   width: 100%;
+
+  flex: 1;
+  min-height: 0;
 }
 
 .rr-lane {
   position: relative;
-  height: clamp(300px, 48vh, 480px);
+
+  width: 100%;
+  height: 100%;
+
   min-width: 0;
+  min-height: 0;
+
   overflow: hidden;
+
   border: 1px solid #ffffff12;
   border-radius: 9px;
 }
 
 .rr-lane-heading {
   position: absolute;
+
   top: 10px;
   left: 0;
+
   z-index: 3;
+
   width: 100%;
+
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 1px;
+
   text-align: center;
 }
 
@@ -320,30 +405,39 @@
 
 .rr-hit-zone {
   position: absolute;
+
   right: 0;
   bottom: 35px;
   left: 0;
+
   z-index: 4;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   height: 35px;
 }
 
 .rr-hit-line {
   position: absolute;
+
   width: 100%;
   height: 2px;
+
   opacity: 0.8;
 }
 
 .rr-hit-box {
   position: relative;
   z-index: 2;
+
   width: 34px;
   height: 34px;
+
   border: 2px solid;
   border-radius: 8px;
+
   transition:
     transform 100ms ease,
     background 100ms ease,
@@ -352,7 +446,9 @@
 
 .rr-hit-active {
   transform: scale(1.25);
+
   background: var(--hit-color) !important;
+
   box-shadow: 0 0 25px var(--hit-color);
 }
 
@@ -362,17 +458,26 @@
 
 .rr-lane-keys {
   display: grid;
+
   grid-template-columns: repeat(4, minmax(0, 1fr));
+
   gap: 5px;
-  margin-top: 10px;
+
+  margin-top: 8px;
+
   text-align: center;
+
+  flex-shrink: 0;
 }
 
 .rr-lane-keys > div {
-  padding: 8px 0;
+  padding: 6px 0;
+
   border: 1px solid #ffffff12;
   border-radius: 7px;
+
   background: #ffffff06;
+
   font-size: 12px;
   font-weight: 900;
 }
@@ -386,7 +491,8 @@
 }
 
 .rr-leaderboard-section {
-  margin-top: 20px;
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 
 /* ==========================================
@@ -397,25 +503,34 @@
   position: fixed;
   z-index: 10001;
   inset: 0;
+
   display: grid;
   place-items: center;
+
   padding: 20px;
+
   overflow: auto;
+
   background: #08070df2;
   backdrop-filter: blur(12px);
 }
 
 .rr-results {
   width: min(560px, 100%);
+
   padding: 32px;
+
   border: 1px solid #ffffff1c;
   border-radius: 20px;
+
   background: #17131f;
+
   box-shadow: 0 20px 80px #0008;
 }
 
 .rr-results h2 {
   margin: 15px 0 24px;
+
   color: #ffffff;
   font-size: 38px;
   font-weight: 900;
@@ -423,8 +538,10 @@
 
 .rr-results > p {
   margin: 18px 0 0;
+
   color: #92899e;
   font-size: 12px;
+
   text-align: center;
 }
 
@@ -434,15 +551,21 @@
 
 .rr-final-comparison {
   position: relative;
+
   display: flex;
   flex-direction: column;
+
   width: min(1000px, 100%);
   max-height: calc(100dvh - 40px);
+
   padding: 24px 30px;
+
   overflow-y: auto;
   overflow-x: hidden;
+
   border: 1px solid #ffffff18;
   border-radius: 22px;
+
   background:
     radial-gradient(
       ellipse at 50% 0%,
@@ -450,8 +573,11 @@
       transparent 48%
     ),
     #17131f;
+
   box-shadow: 0 25px 100px #0009;
+
   animation: rr-results-enter 450ms ease-out;
+
   scrollbar-width: none;
 }
 
@@ -466,6 +592,7 @@
 
 .rr-comparison-heading h2 {
   margin: 10px 0;
+
   color: #ffffff;
   font-size: 28px;
   font-weight: 900;
@@ -478,17 +605,21 @@
 
 .rr-comparison-players {
   display: grid;
+
   grid-template-columns: repeat(
     auto-fit,
     minmax(230px, 1fr)
   );
+
   gap: 15px;
 }
 
 .rr-comparison-player {
   padding: 20px;
+
   border: 1px solid #ffffff15;
   border-radius: 15px;
+
   background: #ffffff07;
 }
 
@@ -496,13 +627,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 12px;
+
   margin-bottom: 18px;
 }
 
 .rr-comparison-player-header h3 {
   display: inline-block;
+
   margin: 0 0 0 8px;
+
   color: #ffffff;
   font-size: 15px;
 }
@@ -519,7 +654,9 @@
 
 .rr-comparison-stats {
   display: grid;
+
   grid-template-columns: repeat(2, minmax(0, 1fr));
+
   gap: 14px;
 }
 
@@ -542,10 +679,12 @@
 
 .rr-comparison-footer {
   margin-top: 20px;
+
   color: #81778f;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 2px;
+
   text-align: center;
 }
 
@@ -555,20 +694,27 @@
 
 .rr-return-lobby {
   display: block;
+
   margin: 20px auto 30px;
   padding: 14px 32px;
+
   border: 1px solid rgba(182, 155, 250, 0.5);
   border-radius: 12px;
+
   background: linear-gradient(
     135deg,
     #9b7bff,
     #7048db
   );
+
   color: white;
+
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 2px;
+
   cursor: pointer;
+
   transition: all 0.2s ease;
 }
 
@@ -594,46 +740,93 @@
 }
 
 /* ==========================================
-   RESPONSIVE
+   SHORT SCREEN OPTIMIZATION
 ========================================== */
 
-@media (max-width: 900px) {
-  .rr-game-boards {
-    grid-template-columns: 1fr;
-  }
-
-  .rr-lane {
-    height: 380px;
-  }
-}
-
-@media (max-width: 650px) {
+@media (max-height: 800px) {
   .rhythm-game {
-    padding: 20px 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 
   .rr-header {
-    align-items: flex-start;
+    margin-bottom: 10px;
   }
 
-  .rr-header h1 {
-    font-size: 26px;
+  .rr-progress-track {
+    margin-bottom: 10px;
   }
 
-  .rr-timer {
-    padding: 10px;
-  }
-
-  .rr-timer strong {
-    font-size: 24px;
+  .rr-scores {
+    margin-bottom: 10px;
+    gap: 8px;
   }
 
   .rr-player-score {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .rr-board {
+    padding: 9px;
+  }
+
+  .rr-board-header {
+    margin-bottom: 6px;
+  }
+
+  .rr-lane-keys {
+    margin-top: 5px;
+  }
+}
+
+/* ==========================================
+   SMALL SCREENS
+========================================== */
+
+@media (max-width: 650px) {
+  .rhythm-game {
     padding: 12px;
   }
 
-  .rr-lane {
-    height: 340px;
+  .rr-header {
+    gap: 10px;
+  }
+
+  .rr-header h1 {
+    font-size: 24px;
+  }
+
+  .rr-subtitle {
+    font-size: 11px;
+  }
+
+  .rr-timer {
+    padding: 8px 12px;
+  }
+
+  .rr-timer strong {
+    font-size: 23px;
+  }
+
+  .rr-player-score {
+    padding: 10px;
+  }
+
+  .rr-game-boards {
+    gap: 8px;
+  }
+
+  .rr-board {
+    padding: 7px;
+  }
+
+  .rr-lanes {
+    gap: 3px;
+  }
+
+  .rr-lane-keys {
+    gap: 3px;
   }
 
   .rr-final-comparison {
@@ -649,12 +842,14 @@
     padding: 12px;
   }
 }
+
 /* ==========================================
    FALLING NOTES
 ========================================== */
 
 .rr-note {
   position: absolute;
+
   left: 50%;
   z-index: 2;
 
@@ -662,6 +857,7 @@
   height: 13px;
 
   border-radius: 6px;
+
   transform: translateX(-50%);
 
   pointer-events: none;
