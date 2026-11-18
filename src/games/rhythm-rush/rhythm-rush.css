@@ -1,7 +1,397 @@
+/* ==========================================
+   RHYTHM RUSH - GLOBAL
+========================================== */
 
-/* =========================================
+.rhythm-game,
+.rr-results-overlay {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.rhythm-game *,
+.rr-results-overlay * {
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   GAME SCREEN
+========================================== */
+
+.rhythm-game {
+  width: 100%;
+  min-height: 100vh;
+  padding: 35px 4%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(104, 67, 170, 0.16),
+      transparent 60%
+    ),
+    #090811;
+  color: #f8f7fc;
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.rr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 25px;
+}
+
+.rr-eyebrow {
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.rr-header h1 {
+  margin: 10px 0 5px;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 900;
+  letter-spacing: -1.5px;
+}
+
+.rr-subtitle {
+  margin: 0;
+  color: #958ba8;
+  font-size: 14px;
+}
+
+/* ==========================================
+   TIMER
+========================================== */
+
+.rr-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  padding: 14px 22px;
+  border: 1px solid #ffffff15;
+  border-radius: 14px;
+  background: #171322;
+}
+
+.rr-timer span {
+  color: #a49ab5;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.rr-timer strong {
+  color: #c4a7ff;
+  font-size: 34px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================
+   PROGRESS BAR
+========================================== */
+
+.rr-progress-track {
+  width: 100%;
+  height: 5px;
+  margin-bottom: 25px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #ffffff12;
+}
+
+.rr-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #9b7bff,
+    #e879f9
+  );
+  box-shadow: 0 0 15px #9b7bff80;
+  transition: width 100ms linear;
+}
+
+/* ==========================================
+   PLAYER SCORE CARDS
+========================================== */
+
+.rr-scores {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(230px, 1fr)
+  );
+  gap: 15px;
+  margin-bottom: 28px;
+}
+
+.rr-player-score {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid #ffffff14;
+  border-radius: 15px;
+  background: linear-gradient(
+    145deg,
+    #1b1727,
+    #12101b
+  );
+}
+
+.rr-player-identity {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ffffff12;
+}
+
+.rr-player-identity strong {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.rr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rr-stat-label {
+  color: #8f849f;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+}
+
+.rr-score-number {
+  color: #c4a7ff;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.rr-combo {
+  color: #fbbf64;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.rr-accuracy {
+  color: #5eead4;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+/* ==========================================
+   HIT STATISTICS
+========================================== */
+
+.rr-hit-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff12;
+}
+
+.rr-hit-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rr-hit-stats span {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.rr-hit-stats strong {
+  color: #f8f7fc;
+  font-size: 16px;
+}
+
+.rr-perfect {
+  color: #5ee6a8;
+}
+
+.rr-good {
+  color: #fbbf64;
+}
+
+.rr-miss {
+  color: #fb7185;
+}
+
+/* ==========================================
+   GAME BOARDS
+========================================== */
+
+.rr-game-boards {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(250px, 1fr)
+  );
+  gap: 20px;
+  width: 100%;
+}
+
+.rr-board {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #ffffff15;
+  border-radius: 18px;
+  background: #13101e;
+  overflow: hidden;
+}
+
+.rr-board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rr-board-header > span:first-child {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.rr-board-label {
+  color: #a78bfa;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+
+/* ==========================================
+   FOUR GAME LANES
+========================================== */
+
+.rr-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+}
+
+.rr-lane {
+  position: relative;
+  height: clamp(300px, 48vh, 480px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ffffff12;
+  border-radius: 9px;
+}
+
+.rr-lane-heading {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  z-index: 3;
+  width: 100%;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* ==========================================
+   HIT ZONE
+========================================== */
+
+.rr-hit-zone {
+  position: absolute;
+  right: 0;
+  bottom: 35px;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 35px;
+}
+
+.rr-hit-line {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  opacity: 0.8;
+}
+
+.rr-hit-box {
+  position: relative;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: 2px solid;
+  border-radius: 8px;
+  transition:
+    transform 100ms ease,
+    background 100ms ease,
+    box-shadow 100ms ease;
+}
+
+.rr-hit-active {
+  transform: scale(1.25);
+  background: var(--hit-color) !important;
+  box-shadow: 0 0 25px var(--hit-color);
+}
+
+/* ==========================================
+   LANE CONTROLS
+========================================== */
+
+.rr-lane-keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.rr-lane-keys > div {
+  padding: 8px 0;
+  border: 1px solid #ffffff12;
+  border-radius: 7px;
+  background: #ffffff06;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* ==========================================
+   TWO PLAYER LAYOUT
+========================================== */
+
+.rr-two-player {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rr-leaderboard-section {
+  margin-top: 20px;
+}
+
+/* ==========================================
    RESULTS OVERLAY
-========================================= */
+========================================== */
 
 .rr-results-overlay {
   position: fixed;
@@ -10,13 +400,10 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  overflow: hidden;
+  overflow: auto;
   background: #08070df2;
-  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
-
-/* FIRST STAGE: GAME OVER */
 
 .rr-results {
   width: min(560px, 100%);
@@ -28,10 +415,10 @@
 }
 
 .rr-results h2 {
-  margin: 0 0 24px;
+  margin: 15px 0 24px;
+  color: #ffffff;
   font-size: 38px;
   font-weight: 900;
-  letter-spacing: -1px;
 }
 
 .rr-results > p {
@@ -41,9 +428,9 @@
   text-align: center;
 }
 
-/* =========================================
-   CHAMPION RESULTS EXPERIENCE
-========================================= */
+/* ==========================================
+   PLAYER COMPARISON
+========================================== */
 
 .rr-final-comparison {
   position: relative;
@@ -57,175 +444,104 @@
   border: 1px solid #ffffff18;
   border-radius: 22px;
   background:
-    radial-gradient(ellipse at 50% 0%, #35234d 0%, transparent 48%),
+    radial-gradient(
+      ellipse at 50% 0%,
+      #35234d 0%,
+      transparent 48%
+    ),
     #17131f;
   box-shadow: 0 25px 100px #0009;
   animation: rr-results-enter 450ms ease-out;
-
-  /* Hide scrollbar without disabling scrolling */
   scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .rr-final-comparison::-webkit-scrollbar {
   display: none;
-  width: 0;
 }
 
-/* CHAMPION CARD */
-
-.rr-champion {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  min-height: 165px;
-  padding: 18px 15px;
-  border: 1px solid #d6b76a55;
-  border-radius: 18px;
-  background: linear-gradient(
-    145deg,
-    #30243a,
-    #191520 75%
-  );
+.rr-comparison-heading {
+  margin-bottom: 22px;
   text-align: center;
 }
 
-.rr-champion-glow {
-  position: absolute;
-  top: -100px;
-  width: 300px;
-  height: 200px;
-  border-radius: 50%;
-  background: #d8b66a22;
-  filter: blur(65px);
-  pointer-events: none;
-}
-
-.rr-champion-label {
-  position: relative;
-  color: #e8c77e;
-  font-size: 11px;
+.rr-comparison-heading h2 {
+  margin: 10px 0;
+  color: #ffffff;
+  font-size: 28px;
   font-weight: 900;
-  letter-spacing: 3px;
 }
 
-.rr-champion-label span {
-  margin-right: 7px;
-  font-size: 16px;
-}
-
-.rr-champion-name {
-  position: relative;
-  margin-top: 9px;
-  color: #fff8e8;
-  font-size: clamp(30px, 5vw, 48px);
-  font-weight: 900;
-  letter-spacing: -1.5px;
-}
-
-.rr-champion-score {
-  position: relative;
-  margin-top: 5px;
-  color: #e8c77e;
-  font-size: clamp(25px, 4vw, 36px);
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-}
-
-.rr-champion-caption {
-  position: relative;
-  margin-top: 4px;
-  color: #a99b83;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
-/* COMPARISON HEADING */
-
-.rr-comparison-table-section {
-  margin-top: 20px;
-}
-
-.rr-comparison-title {
-  margin-bottom: 12px;
-}
-
-.rr-comparison-title h2 {
-  margin: 7px 0 0;
-  color: #f8f7fc;
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.7px;
-}
-
-/* COMPARISON TABLE */
-
-.rr-comparison-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid #ffffff16;
-  border-radius: 13px;
-  background: #ffffff05;
-}
-
-.rr-comparison-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.rr-comparison-table th,
-.rr-comparison-table td {
-  padding: 11px 18px;
-  border-bottom: 1px solid #ffffff10;
+.rr-comparison-heading p {
+  color: #92899e;
   font-size: 13px;
-  white-space: nowrap;
 }
 
-.rr-comparison-table th {
-  color: #9c91ad;
+.rr-comparison-players {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(230px, 1fr)
+  );
+  gap: 15px;
+}
+
+.rr-comparison-player {
+  padding: 20px;
+  border: 1px solid #ffffff15;
+  border-radius: 15px;
   background: #ffffff07;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 1.2px;
 }
 
-.rr-comparison-table td {
-  color: #d6d0df;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.rr-comparison-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.rr-comparison-table tbody tr:last-child td {
-  border-bottom: 0;
+.rr-comparison-player-header h3 {
+  display: inline-block;
+  margin: 0 0 0 8px;
+  color: #ffffff;
+  font-size: 15px;
 }
 
-.rr-comparison-table td:first-child {
-  color: #a69bb5;
-  font-weight: 700;
-}
-
-/* WINNER COLUMN */
-
-.rr-comparison-table .rr-winner-column {
-  color: #e6ca8b;
-  background: #d6b76a0c;
+.rr-comparison-rank {
+  color: #c4a7ff;
   font-weight: 900;
 }
 
-.rr-table-player-rank {
-  margin-right: 7px;
-  color: #d8b66a;
+.rr-comparison-score {
+  color: #e8c77e;
+  font-size: 20px;
 }
 
-/* FOOTER */
+.rr-comparison-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rr-comparison-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rr-comparison-stat span {
+  color: #92899e;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.rr-comparison-stat strong {
+  font-size: 17px;
+}
 
 .rr-comparison-footer {
-  margin-top: 15px;
+  margin-top: 20px;
   color: #81778f;
   font-size: 9px;
   font-weight: 800;
@@ -233,9 +549,37 @@
   text-align: center;
 }
 
-/* =========================================
+/* ==========================================
+   RETURN TO LOBBY
+========================================== */
+
+.rr-return-lobby {
+  display: block;
+  margin: 20px auto 30px;
+  padding: 14px 32px;
+  border: 1px solid rgba(182, 155, 250, 0.5);
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    #9b7bff,
+    #7048db
+  );
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rr-return-lobby:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px #9b7bff4d;
+}
+
+/* ==========================================
    RESULTS ANIMATION
-========================================= */
+========================================== */
 
 @keyframes rr-results-enter {
   from {
@@ -249,100 +593,112 @@
   }
 }
 
-/* =========================================
-   RESPONSIVE RESULTS
-========================================= */
+/* ==========================================
+   RESPONSIVE
+========================================== */
 
-/* Short desktop screens */
-
-@media (max-height: 800px) {
-  .rr-final-comparison {
-    padding: 16px 24px;
+@media (max-width: 900px) {
+  .rr-game-boards {
+    grid-template-columns: 1fr;
   }
 
-  .rr-champion {
-    min-height: 135px;
-    padding: 12px;
-  }
-
-  .rr-champion-name {
-    margin-top: 6px;
-    font-size: 34px;
-  }
-
-  .rr-champion-score {
-    font-size: 27px;
-  }
-
-  .rr-comparison-table-section {
-    margin-top: 14px;
-  }
-
-  .rr-comparison-title {
-    margin-bottom: 10px;
-  }
-
-  .rr-comparison-title h2 {
-    font-size: 21px;
-  }
-
-  .rr-comparison-table th,
-  .rr-comparison-table td {
-    padding: 8px 16px;
-  }
-
-  .rr-comparison-footer {
-    margin-top: 10px;
+  .rr-lane {
+    height: 380px;
   }
 }
 
-/* Mobile */
-
 @media (max-width: 650px) {
+  .rhythm-game {
+    padding: 20px 12px;
+  }
+
+  .rr-header {
+    align-items: flex-start;
+  }
+
+  .rr-header h1 {
+    font-size: 26px;
+  }
+
+  .rr-timer {
+    padding: 10px;
+  }
+
+  .rr-timer strong {
+    font-size: 24px;
+  }
+
+  .rr-player-score {
+    padding: 12px;
+  }
+
+  .rr-lane {
+    height: 340px;
+  }
+
+  .rr-final-comparison {
+    padding: 16px;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .rr-comparison-players {
+    grid-template-columns: 1fr;
+  }
+
   .rr-results-overlay {
     padding: 12px;
   }
-
-  .rr-final-comparison {
-    width: 100%;
-    max-height: calc(100dvh - 24px);
-    padding: 16px;
-  }
-
-  .rr-champion {
-    min-height: 145px;
-  }
-
-  .rr-comparison-table th,
-  .rr-comparison-table td {
-    padding: 10px;
-    font-size: 11px;
-  }
 }
-.rr-return-lobby {
-  display: block;
-  margin: 20px auto 30px;
-  padding: 14px 32px;
+/* ==========================================
+   FALLING NOTES
+========================================== */
 
-  border: 1px solid rgba(182, 155, 250, 0.5);
-  border-radius: 12px;
+.rr-note {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
 
-  background: linear-gradient(
-    135deg,
-    #9b7bff,
-    #7048db
-  );
+  width: 72%;
+  height: 13px;
 
-  color: white;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 2px;
+  border-radius: 6px;
+  transform: translateX(-50%);
 
-  cursor: pointer;
-  transition: all 0.2s ease;
+  pointer-events: none;
+
+  transition:
+    opacity 120ms ease,
+    filter 120ms ease;
 }
 
-.rr-return-lobby:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(155, 123, 255, 0.3);
+/* Missed notes */
+
+.rr-note-missed {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+/* ==========================================
+   HIT EFFECT
+========================================== */
+
+.rr-hit-active {
+  animation: rr-hit-pulse 180ms ease-out;
+}
+
+@keyframes rr-hit-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
