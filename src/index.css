@@ -1642,3 +1642,69 @@ button {
   font-size: 14px;
   text-align: center;
 }
+/* ==========================================
+   PLAYVERSE GAME DISPLAY
+========================================== */
+
+/* The game takes over the entire viewport */
+
+.playverse-game-stage {
+  position: fixed !important;
+  inset: 0 !important;
+
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: hidden !important;
+
+  background: #0b0912 !important;
+
+  z-index: 2147483647 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Game renderer fills available space */
+
+.playverse-game-stage > * {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+}
+
+/* Hide the entire dashboard while playing */
+
+body:has(.playverse-game-stage) > #root {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Prevent scrolling */
+
+html:has(.playverse-game-stage),
+body:has(.playverse-game-stage) {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+/* Prevent accidental game-stage scrolling */
+
+.playverse-game-stage,
+.playverse-game-stage * {
+  scrollbar-width: none;
+}
+
+.playverse-game-stage::-webkit-scrollbar,
+.playverse-game-stage *::-webkit-scrollbar {
+  display: none;
+}

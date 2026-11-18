@@ -41,12 +41,11 @@ export function HostSessionProvider({
 
   useEffect(() => {
     const newSocket = io(
-      `http://${window.location.hostname}:3001`,
-      {
-        reconnection: true,
-      }
-    );
-
+  `http://${window.location.hostname}:3001`,
+  {
+    reconnection: true,
+  }
+);
     setSocket(newSocket);
 
     newSocket.on("connect", () => {

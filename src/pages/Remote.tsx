@@ -269,6 +269,37 @@ export default function Remote() {
     }, 100);
   };
 
+  const laneColors = [
+    {
+      name: "AMETHYST",
+      color: "#A477FF",
+      background: "rgba(164, 119, 255, 0.16)",
+      border: "rgba(164, 119, 255, 0.55)",
+      glow: "rgba(164, 119, 255, 0.4)",
+    },
+    {
+      name: "ROSE",
+      color: "#F05AA6",
+      background: "rgba(240, 90, 166, 0.16)",
+      border: "rgba(240, 90, 166, 0.55)",
+      glow: "rgba(240, 90, 166, 0.4)",
+    },
+    {
+      name: "APRICOT",
+      color: "#FF923D",
+      background: "rgba(255, 146, 61, 0.16)",
+      border: "rgba(255, 146, 61, 0.55)",
+      glow: "rgba(255, 146, 61, 0.4)",
+    },
+    {
+      name: "AQUA",
+      color: "#42DCCB",
+      background: "rgba(66, 220, 203, 0.16)",
+      border: "rgba(66, 220, 203, 0.55)",
+      glow: "rgba(66, 220, 203, 0.4)",
+    },
+  ];
+
   const isRhythmRush = activeGame?.gameId === "rhythm-rush";
 
   if (activeGame && isRhythmRush) {
@@ -328,19 +359,33 @@ export default function Remote() {
               }}
               style={{
                 borderRadius: "22px",
-                border: `1px solid ${pressedLane === lane ? "#E0C8FF" : "rgba(190,160,255,0.2)"}`,
-                background: pressedLane === lane
-                  ? "linear-gradient(180deg, #A47AFF, #7046B8)"
-                  : "linear-gradient(180deg, #292238, #1A1724)",
-                color: "#fff",
+                border: `2px solid ${
+                  pressedLane === lane
+                    ? laneColors[lane].color
+                    : laneColors[lane].border
+                }`,
+                background:
+                  pressedLane === lane
+                    ? laneColors[lane].color
+                    : `linear-gradient(180deg, ${laneColors[lane].background}, rgba(20, 16, 29, 0.95))`,
+                color: pressedLane === lane ? "#100D19" : laneColors[lane].color,
                 fontSize: "clamp(24px, 7vw, 42px)",
                 fontWeight: 800,
-                boxShadow: pressedLane === lane ? "0 0 28px rgba(164,122,255,0.45)" : "inset 0 1px 0 rgba(255,255,255,0.05)",
+                boxShadow:
+                  pressedLane === lane
+                    ? `0 0 30px ${laneColors[lane].glow}`
+                    : "inset 0 1px 0 rgba(255,255,255,0.05)",
                 touchAction: "none",
                 WebkitTapHighlightColor: "transparent",
+                transition: "all 120ms ease",
               }}
             >
-              {lane + 1}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                <span>{lane + 1}</span>
+                <span style={{ fontSize: "10px", letterSpacing: "1.5px" }}>
+                  {laneColors[lane].name}
+                </span>
+              </div>
             </button>
           ))}
         </section>
