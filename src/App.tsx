@@ -173,6 +173,131 @@ function AppContent() {
       hoveredElement?.classList.add("remote-cursor-hover");
     };
 
+// ==========================================
+// REMOTE CURSOR EDGE SCROLLING
+// ==========================================
+
+const EDGE_SIZE = 90;
+const MAX_SCROLL_SPEED = 14;
+
+let edgeScrollFrame = 0;
+
+const stopEdgeScroll = () => {
+  if (edgeScrollFrame) {
+    cancelAnimationFrame(edgeScrollFrame);
+    edgeScrollFrame = 0;
+  }
+};
+
+// Find the actual scrollable dashboard container.
+const getScrollContainer = (): HTMLElement | null => {
+  const candidates = [
+    document.querySelector(".main-content"),
+    document.querySelector(".page-container"),
+    document.scrollingElement,
+    document.documentElement,
+    document.body,
+  ];
+
+  for (const candidate of candidates) {
+    if (!(candidate instanceof HTMLElement)) continue;
+
+    const canScrollVertically =
+      candidate.scrollHeight > candidate.clientHeight + 1;
+
+    const canScrollHorizontally =
+      candidate.scrollWidth > candidate.clientWidth + 1;
+
+    if (canScrollVertically || canScrollHorizontally) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const startEdgeScroll = () => {
+  if (edgeScrollFrame) return;
+
+  const scrollLoop = () => {
+    // Never scroll during gameplay.
+    if (document.querySelector(".playverse-game-stage")) {
+      stopEdgeScroll();
+      return;
+    }
+
+    const { x, y } = cursorRef.current;
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const container = getScrollContainer();
+
+    if (!container) {
+      stopEdgeScroll();
+      return;
+    }
+
+    let scrollX = 0;
+    let scrollY = 0;
+
+    // TOP EDGE
+    if (y < EDGE_SIZE) {
+      const intensity = (EDGE_SIZE - y) / EDGE_SIZE;
+      scrollY = -Math.max(2, intensity * MAX_SCROLL_SPEED);
+    }
+
+    // BOTTOM EDGE
+    else if (y > height - EDGE_SIZE) {
+      const intensity =
+        (y - (height - EDGE_SIZE)) / EDGE_SIZE;
+
+      scrollY = Math.max(2, intensity * MAX_SCROLL_SPEED);
+    }
+
+    // LEFT EDGE
+    if (x < EDGE_SIZE) {
+      const intensity = (EDGE_SIZE - x) / EDGE_SIZE;
+      scrollX = -Math.max(2, intensity * MAX_SCROLL_SPEED);
+    }
+
+    // RIGHT EDGE
+    else if (x > width - EDGE_SIZE) {
+      const intensity =
+        (x - (width - EDGE_SIZE)) / EDGE_SIZE;
+
+      scrollX = Math.max(2, intensity * MAX_SCROLL_SPEED);
+    }
+
+    // Scroll the actual dashboard container.
+    if (scrollX !== 0 || scrollY !== 0) {
+      const previousTop = container.scrollTop;
+      const previousLeft = container.scrollLeft;
+
+      container.scrollTop += scrollY;
+      container.scrollLeft += scrollX;
+
+      // Update hover after the page moves.
+      updateHover(x, y);
+
+      // Stop if the container has reached its boundary.
+      const actuallyScrolled =
+        container.scrollTop !== previousTop ||
+        container.scrollLeft !== previousLeft;
+
+      if (actuallyScrolled) {
+        edgeScrollFrame = requestAnimationFrame(scrollLoop);
+      } else {
+        stopEdgeScroll();
+      }
+    } else {
+      stopEdgeScroll();
+    }
+  };
+
+  edgeScrollFrame = requestAnimationFrame(scrollLoop);
+};
+
     // Receive cursor movement and click events from the phone.
     const handleCursor = (data: {
       type: "move" | "click";
@@ -200,11 +325,24 @@ function AppContent() {
         };
 
         cursorRef.current = next;
-        setCursor(next);
+setCursor(next);
 
-        updateHover(next.x, next.y);
+updateHover(next.x, next.y);
 
-        return;
+// Start scrolling when cursor approaches screen edges.
+const nearEdge =
+  next.x < EDGE_SIZE ||
+  next.x > window.innerWidth - EDGE_SIZE ||
+  next.y < EDGE_SIZE ||
+  next.y > window.innerHeight - EDGE_SIZE;
+
+if (nearEdge) {
+  startEdgeScroll();
+} else {
+  stopEdgeScroll();
+}
+
+return;
       }
 
       if (data.type === "click") {
@@ -244,13 +382,16 @@ function AppContent() {
     socket.on("remote:navigate", handleRemoteNavigation);
 
     return () => {
-      socket.off("remote:cursor", handleCursor);
-      socket.off("remote:navigate", handleRemoteNavigation);
+  socket.off("remote:cursor", handleCursor);
+  socket.off("remote:navigate", handleRemoteNavigation);
 
-      hoveredElement?.classList.remove("remote-cursor-hover");
+  // Stop any ongoing edge scrolling.
+  stopEdgeScroll();
 
-      setCursorVisible(false);
-    };
+  hoveredElement?.classList.remove("remote-cursor-hover");
+
+  setCursorVisible(false);
+};
   }, [socket, remoteConnected, location.pathname, navigate]);
 
   // ==========================================
