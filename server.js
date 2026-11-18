@@ -24,6 +24,48 @@
   const MAX_PLAYERS = 8;
 
   // --------------------------------------------------
+// GAME CONFIGURATION
+// --------------------------------------------------
+
+const ALLOWED_GAMES = [
+  "fruit-frenzy",
+  "sword-clash",
+  "rhythm-rush",
+  "reflex-wars",
+];
+
+const RHYTHM_CONFIG = {
+  durationMs: 60_000,
+  approachTime: 3500,
+  beatInterval: 750,
+  firstNoteTime: 3500,
+  perfectWindow: 150,
+  goodWindow: 300,
+};
+
+function generateRhythmBeatChart(durationMs) {
+  const notes = [];
+  let id = 0;
+
+  for (
+    let time = RHYTHM_CONFIG.firstNoteTime;
+    time < durationMs;
+    time += RHYTHM_CONFIG.beatInterval
+  ) {
+    const lane = (id * 3 + Math.floor(id / 4)) % 4;
+
+    notes.push({
+      id,
+      lane,
+      time,
+    });
+
+    id++;
+  }
+
+  return notes;
+}
+  // --------------------------------------------------
   // ROOM HELPERS
   // --------------------------------------------------
 
@@ -387,103 +429,141 @@
       socket.data.roomCode = null;
     });
 
-    // --------------------------------------------------
-    // GAME START
-    // --------------------------------------------------
+// --------------------------------------------------
+// GAME START
+// --------------------------------------------------
 
-    socket.on("game:start", ({ gameId, config }, callback) => {
-      if (socket.data.role !== "host") {
-        return callback?.({
-          success: false,
-          message: "Only the host can start a game",
-        });
-      }
-
-      const room = getRoom(socket.data.roomCode);
-
-      if (!room) {
-        return callback?.({
-          success: false,
-          message: "Room not found",
-        });
-      }
-
-      if (room.game) {
-        return callback?.({
-          success: false,
-          message: "A game is already running",
-        });
-      }
-
-      const players = getPlayers(room);
-
-      if (players.length === 0) {
-        return callback?.({
-          success: false,
-          message: "At least one player is required",
-        });
-      }
-
-      const sessionId = randomUUID();
-      const startTime = Date.now() + GAME_START_DELAY;
-
-      const game = {
-        gameId,
-        sessionId,
-        startTime,
-        playerIds: players.map((player) => player.id),
-        config: config || {},
-        startedAt: Date.now(),
-        status: "running",
-        results: new Map(),
-      };
-
-      // Rhythm Rush chart generation.
-      if (gameId === "rhythm-rush") {
-        const chart = [];
-        const beatInterval = 60000 / (config?.bpm || 120);
-        const totalNotes = config?.totalNotes || 40;
-
-        for (let i = 0; i < totalNotes; i++) {
-          chart.push({
-            id: i,
-            lane: Math.floor(Math.random() * 4),
-            time: i * beatInterval,
-          });
-        }
-
-        game.chart = chart;
-      }
-
-      room.game = game;
-
-      const gamePayload = {
-        gameId: game.gameId,
-        sessionId: game.sessionId,
-        startTime: game.startTime,
-        config: game.config,
-        players: getPublicPlayers(room),
-        chart: game.chart,
-      };
-
-      // Notify TV host.
-      io.to(room.hostId).emit("game:started", gamePayload);
-
-      // Notify every player, including the host remote.
-      for (const player of players) {
-        io.to(player.id).emit("game:started", gamePayload);
-      }
-
-      callback?.({
-        success: true,
-        sessionId,
-        startTime,
-      });
-
-      console.log(
-        `Game ${gameId} started in ${room.code} with ${players.length} players`
-      );
+socket.on("game:start", (data = {}, callback) => {
+  if (socket.data.role !== "host") {
+    return callback?.({
+      success: false,
+      error: "Only the host can start a game",
     });
+  }
+
+  const room = getRoom(socket.data.roomCode);
+
+  if (!room) {
+    return callback?.({
+      success: false,
+      error: "Room not found",
+    });
+  }
+
+  const gameId = String(data.gameId || "").trim();
+
+  if (!ALLOWED_GAMES.includes(gameId)) {
+    return callback?.({
+      success: false,
+      error: "Invalid game selection",
+    });
+  }
+
+  if (room.game) {
+    return callback?.({
+      success: false,
+      error: "A game is already running",
+    });
+  }
+
+  const players = getPlayers(room);
+
+  if (players.length === 0) {
+    return callback?.({
+      success: false,
+      error: "At least one player is required",
+    });
+  }
+
+  const sessionId = randomUUID();
+
+  const startAt = Date.now() + GAME_START_DELAY;
+
+  const durationSeconds = 60;
+  const durationMs = durationSeconds * 1000;
+
+  const rhythmConfig =
+    gameId === "rhythm-rush"
+      ? {
+          ...RHYTHM_CONFIG,
+          durationMs,
+        }
+      : null;
+
+  const beatChart =
+    gameId === "rhythm-rush"
+      ? generateRhythmBeatChart(durationMs)
+      : [];
+
+  const game = {
+    gameId,
+    sessionId,
+    status: "running",
+    startedAt: startAt,
+    playerIds: players.map((player) => player.id),
+
+    settings: {
+      durationSeconds,
+    },
+
+    beatChart,
+    rhythmConfig,
+
+    results: new Map(),
+    resultSubmitted: false,
+  };
+
+  room.game = game;
+
+  // Public game payload.
+  const publicGame = {
+    gameId: game.gameId,
+    sessionId: game.sessionId,
+    status: game.status,
+
+    startedAt: game.startedAt,
+    startAt: game.startedAt,
+
+    playerIds: [...game.playerIds],
+
+    settings: game.settings,
+
+    beatChart: game.beatChart,
+    rhythmConfig: game.rhythmConfig,
+
+    players: players.map((player) => ({
+      id: player.id,
+      nickname: player.nickname,
+      connected: player.connected,
+    })),
+  };
+
+  console.log("----------------------------------");
+  console.log(`Starting ${gameId} in room ${room.code}`);
+  console.log(`Session: ${sessionId}`);
+  console.log(`Players: ${players.length}`);
+
+  if (gameId === "rhythm-rush") {
+    console.log(`Generated notes: ${beatChart.length}`);
+  }
+
+  // Notify TV.
+  io.to(room.hostId).emit("game:started", publicGame);
+
+  // Notify connected players.
+  for (const player of players) {
+    io.to(player.id).emit("game:started", publicGame);
+  }
+
+  // Return complete game configuration to TV.
+  callback?.({
+    success: true,
+    game: publicGame,
+  });
+
+  console.log(`Game started successfully in ${room.code}`);
+  console.log("----------------------------------");
+});
 
     // --------------------------------------------------
     // GAME INPUT
@@ -507,56 +587,132 @@
       });
     });
 
-    // --------------------------------------------------
-    // GAME RESULT SUBMISSION
-    // --------------------------------------------------
-
-    socket.on("game:result:submit", (result, callback) => {
-      if (socket.data.role !== "host") {
-        return callback?.({
-          success: false,
-          message: "Only the host can submit results",
-        });
-      }
-
-      const room = getRoom(socket.data.roomCode);
-
-      if (!room || !room.game) {
-        return callback?.({
-          success: false,
-          message: "No active game",
-        });
-      }
-
-      const game = room.game;
-
-      if (game.status !== "running") {
-        return callback?.({
-          success: false,
-          message: "Game is not running",
-        });
-      }
-
-      const playerId = result?.playerId;
-
-      if (!game.playerIds.includes(playerId)) {
-        return callback?.({
-          success: false,
-          message: "Invalid player",
-        });
-      }
-
-      game.results.set(playerId, result);
-
-      io.to(playerId).emit("game:result:accepted", {
-        sessionId: game.sessionId,
-      });
-
-      callback?.({
-        success: true,
-      });
+socket.on("game:result:submit", (result, callback) => {
+  if (socket.data.role !== "host") {
+    return callback?.({
+      success: false,
+      error: "Only the host can submit results",
     });
+  }
 
+  const room = getRoom(socket.data.roomCode);
+
+  if (!room || !room.game) {
+    return callback?.({
+      success: false,
+      error: "No active game",
+    });
+  }
+
+  const game = room.game;
+
+  if (game.status !== "running") {
+    return callback?.({
+      success: false,
+      error: "Game is not running",
+    });
+  }
+
+  if (game.resultSubmitted) {
+    return callback?.({
+      success: false,
+      error: "Results have already been submitted",
+    });
+  }
+
+  // Validate session.
+  if (result?.sessionId !== game.sessionId) {
+    return callback?.({
+      success: false,
+      error: "Game session does not match",
+    });
+  }
+
+  if (result?.gameId !== game.gameId) {
+    return callback?.({
+      success: false,
+      error: "Game ID does not match",
+    });
+  }
+
+  // Validate results.
+  if (!Array.isArray(result.scores)) {
+    return callback?.({
+      success: false,
+      error: "Invalid player scores",
+    });
+  }
+
+  if (result.scores.length !== game.playerIds.length) {
+    return callback?.({
+      success: false,
+      error: "Player count does not match",
+    });
+  }
+
+  if (
+    !Number.isFinite(result.duration) ||
+    result.duration < 0
+  ) {
+    return callback?.({
+      success: false,
+      error: "Invalid game duration",
+    });
+  }
+
+  const submittedPlayers = new Set();
+
+  for (const player of result.scores) {
+    if (!game.playerIds.includes(player.playerId)) {
+      return callback?.({
+        success: false,
+        error: "Unknown player in results",
+      });
+    }
+
+    if (submittedPlayers.has(player.playerId)) {
+      return callback?.({
+        success: false,
+        error: "Duplicate player results",
+      });
+    }
+
+    submittedPlayers.add(player.playerId);
+
+    if (
+      !Number.isFinite(player.score) ||
+      !Number.isFinite(player.accuracy)
+    ) {
+      return callback?.({
+        success: false,
+        error: "Invalid player statistics",
+      });
+    }
+  }
+
+  // Store complete game results.
+  game.results = result;
+  game.resultSubmitted = true;
+  game.status = "finished";
+  game.endedAt = Date.now();
+
+  // Notify connected players that their results were accepted.
+  for (const playerId of game.playerIds) {
+    io.to(playerId).emit("game:result:accepted", {
+      sessionId: game.sessionId,
+    });
+  }
+
+  callback?.({
+    success: true,
+    message: "Game results accepted",
+    sessionId: game.sessionId,
+  });
+
+  console.log(
+    `Results accepted for ${game.gameId} in room ${room.code}`
+  );
+});
     // --------------------------------------------------
     // GAME END
     // --------------------------------------------------

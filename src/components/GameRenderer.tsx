@@ -1,4 +1,3 @@
-
 import {
   lazy,
   Suspense,
@@ -30,6 +29,7 @@ export interface GameRendererProps {
   startAt?: number;
   rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
+  onReturnToLobby?: () => void;
 }
 
 type GameModule = {
@@ -37,7 +37,9 @@ type GameModule = {
 };
 
 function loadGame(
-  importer: () => Promise<{ default?: ComponentType<GameRendererProps> }>,
+  importer: () => Promise<{
+    default?: ComponentType<GameRendererProps>;
+  }>,
   gameName: string
 ): Promise<GameModule> {
   return importer().then((module) => {
@@ -93,6 +95,7 @@ interface Props {
   startAt?: number;
   rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
+  onReturnToLobby?: () => void;
 }
 
 export default function GameRenderer({
@@ -105,6 +108,7 @@ export default function GameRenderer({
   startAt,
   rhythmConfig,
   onEnd,
+  onReturnToLobby,
 }: Props) {
   const gameProps: GameRendererProps = {
     sessionId,
@@ -115,6 +119,7 @@ export default function GameRenderer({
     startAt,
     rhythmConfig,
     onEnd,
+    onReturnToLobby,
   };
 
   let SelectedGame: GameComponent;

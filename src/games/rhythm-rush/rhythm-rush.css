@@ -319,3 +319,30 @@
     font-size: 11px;
   }
 }
+.rr-return-lobby {
+  display: block;
+  margin: 20px auto 30px;
+  padding: 14px 32px;
+
+  border: 1px solid rgba(182, 155, 250, 0.5);
+  border-radius: 12px;
+
+  background: linear-gradient(
+    135deg,
+    #9b7bff,
+    #7048db
+  );
+
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rr-return-lobby:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(155, 123, 255, 0.3);
+}

@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import { useRhythmEngine } from "./hooks/UseRhythmEngine";
 import GameLane from "./components/GameLane";
@@ -30,6 +29,7 @@ interface RhythmRushProps {
   startAt?: number;
   rhythmConfig?: RhythmConfig;
   onEnd: (result: any) => void;
+  onReturnToLobby?: () => void;
 }
 
 const laneColors = [
@@ -121,7 +121,6 @@ function FinalComparison({ players }: { players: any[] }) {
       label: "ACCURACY",
       key: "accuracy",
       color: "#5EEAD4",
-      suffix: "%",
     },
     {
       label: "FINAL SCORE",
@@ -149,7 +148,9 @@ function FinalComparison({ players }: { players: any[] }) {
                 <span className="rr-comparison-rank">
                   #{index + 1}
                 </span>
-                <h3>{player.nickname || player.playerId}</h3>
+                <h3>
+                  {player.nickname || player.playerId}
+                </h3>
               </div>
 
               <strong className="rr-comparison-score">
@@ -164,10 +165,15 @@ function FinalComparison({ players }: { players: any[] }) {
                   key={stat.key}
                 >
                   <span>{stat.label}</span>
+
                   <strong style={{ color: stat.color }}>
                     {stat.key === "accuracy"
-                      ? `${Number(player[stat.key] || 0).toFixed(1)}%`
-                      : Number(player[stat.key] || 0).toLocaleString()}
+                      ? `${Number(
+                          player[stat.key] || 0
+                        ).toFixed(1)}%`
+                      : Number(
+                          player[stat.key] || 0
+                        ).toLocaleString()}
                   </strong>
                 </div>
               ))}
@@ -196,6 +202,7 @@ export default function RhythmRush({
   startAt,
   rhythmConfig,
   onEnd,
+  onReturnToLobby,
 }: RhythmRushProps) {
   const [resultsStage, setResultsStage] = useState<
     "leaderboard" | "comparison"
@@ -277,7 +284,16 @@ export default function RhythmRush({
             <p>Final results are ready.</p>
           </div>
         ) : (
-          <FinalComparison players={engine.scores} />
+          <>
+            <FinalComparison players={engine.scores} />
+
+            <button
+              className="rr-return-lobby"
+              onClick={() => onReturnToLobby?.()}
+            >
+              RETURN TO LOBBY
+            </button>
+          </>
         )}
       </div>
     );

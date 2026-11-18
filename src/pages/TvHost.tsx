@@ -31,7 +31,7 @@ interface GameResponse {
     sessionId?: string;
     gameId: string;
     status: string;
-    startedAt: number;
+    startedAt?: number;
     startAt?: number;
     playerIds?: string[];
     settings?: Record<string, unknown>;
@@ -221,15 +221,65 @@ export default function TvHost() {
       return;
     }
 
-    socket.emit(
+    setGameError("");
+
+    socket.timeout(5000).emit(
       "game:result:submit",
       result,
-      (response: any) => {
+      (timeoutError: Error | null, response: any) => {
+        if (timeoutError) {
+          setGameError(
+            "Server timed out while submitting game results."
+          );
+          return;
+        }
+
         if (!response?.success) {
           setGameError(
             response?.error || "Unable to submit game results."
           );
+          return;
         }
+
+        console.log("Game results accepted:", response);
+      }
+    );
+  };
+
+  // ----------------------------------
+  // RETURN TO LOBBY
+  // ----------------------------------
+
+  const handleReturnToLobby = () => {
+    if (!socket?.connected) {
+      setGameError(
+        "Connection lost. Unable to return to lobby."
+      );
+      return;
+    }
+
+    setGameError("");
+
+    socket.timeout(5000).emit(
+      "game:end",
+      (timeoutError: Error | null, response: any) => {
+        if (timeoutError) {
+          setGameError(
+            "Server timed out. Please try again."
+          );
+          return;
+        }
+
+        if (!response?.success) {
+          setGameError(
+            response?.error ||
+              response?.message ||
+              "Unable to return to lobby."
+          );
+          return;
+        }
+
+        console.log("Returned to lobby successfully.");
       }
     );
   };
@@ -244,21 +294,47 @@ export default function TvHost() {
 
   if (gameStarted && activeGame) {
     return (
-      <GameRenderer
-        gameId={activeGame.gameId}
-        sessionId={activeGame.sessionId || ""}
-        players={players.filter((player) =>
-          activeGame.playerIds
-            ? activeGame.playerIds.includes(player.id)
-            : player.connected
+      <>
+        <GameRenderer
+          gameId={activeGame.gameId}
+          sessionId={activeGame.sessionId || ""}
+          players={players.filter((player) =>
+            activeGame.playerIds
+              ? activeGame.playerIds.includes(player.id)
+              : player.connected
+          )}
+          socket={socket}
+          settings={activeGame.settings || {}}
+          beatChart={activeGame.beatChart}
+          startAt={activeGame.startAt ?? activeGame.startedAt}
+          rhythmConfig={activeGame.rhythmConfig}
+          onEnd={handleGameEnd}
+          onReturnToLobby={handleReturnToLobby}
+        />
+
+        {gameError && (
+          <div
+            role="alert"
+            style={{
+              position: "fixed",
+              bottom: "24px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "#351b27",
+              border: "1px solid #ff858c",
+              color: "#ffb0b5",
+              padding: "12px 20px",
+              borderRadius: "10px",
+              zIndex: 9999,
+              fontSize: "14px",
+              maxWidth: "min(90vw, 560px)",
+              textAlign: "center",
+            }}
+          >
+            {gameError}
+          </div>
         )}
-        socket={socket}
-        settings={activeGame.settings || {}}
-        beatChart={activeGame.beatChart}
-        startAt={activeGame.startAt}
-        rhythmConfig={activeGame.rhythmConfig}
-        onEnd={handleGameEnd}
-      />
+      </>
     );
   }
 
