@@ -178,7 +178,7 @@ function AppContent() {
 // ==========================================
 
 const EDGE_SIZE = 90;
-const MAX_SCROLL_SPEED = 14;
+const MAX_SCROLL_SPEED = 18;
 
 let edgeScrollFrame = 0;
 
@@ -189,39 +189,19 @@ const stopEdgeScroll = () => {
   }
 };
 
-// Find the actual scrollable dashboard container.
-const getScrollContainer = (): HTMLElement | null => {
-  const candidates = [
-    document.querySelector(".main-content"),
-    document.querySelector(".page-container"),
-    document.scrollingElement,
-    document.documentElement,
-    document.body,
-  ];
-
-  for (const candidate of candidates) {
-    if (!(candidate instanceof HTMLElement)) continue;
-
-    const canScrollVertically =
-      candidate.scrollHeight > candidate.clientHeight + 1;
-
-    const canScrollHorizontally =
-      candidate.scrollWidth > candidate.clientWidth + 1;
-
-    if (canScrollVertically || canScrollHorizontally) {
-      return candidate;
-    }
-  }
-
-  return null;
-};
-
 const startEdgeScroll = () => {
   if (edgeScrollFrame) return;
 
   const scrollLoop = () => {
-    // Never scroll during gameplay.
+    // Never scroll while a game is active.
     if (document.querySelector(".playverse-game-stage")) {
+      stopEdgeScroll();
+      return;
+    }
+
+    const scrollContainer = document.scrollingElement;
+
+    if (!scrollContainer) {
       stopEdgeScroll();
       return;
     }
@@ -230,13 +210,6 @@ const startEdgeScroll = () => {
 
     const width = window.innerWidth;
     const height = window.innerHeight;
-
-    const container = getScrollContainer();
-
-    if (!container) {
-      stopEdgeScroll();
-      return;
-    }
 
     let scrollX = 0;
     let scrollY = 0;
@@ -269,27 +242,23 @@ const startEdgeScroll = () => {
       scrollX = Math.max(2, intensity * MAX_SCROLL_SPEED);
     }
 
-    // Scroll the actual dashboard container.
-    if (scrollX !== 0 || scrollY !== 0) {
-      const previousTop = container.scrollTop;
-      const previousLeft = container.scrollLeft;
+    if (scrollX === 0 && scrollY === 0) {
+      stopEdgeScroll();
+      return;
+    }
 
-      container.scrollTop += scrollY;
-      container.scrollLeft += scrollX;
+    const previousTop = scrollContainer.scrollTop;
+    const previousLeft = scrollContainer.scrollLeft;
 
-      // Update hover after the page moves.
-      updateHover(x, y);
+    scrollContainer.scrollTop += scrollY;
+    scrollContainer.scrollLeft += scrollX;
 
-      // Stop if the container has reached its boundary.
-      const actuallyScrolled =
-        container.scrollTop !== previousTop ||
-        container.scrollLeft !== previousLeft;
+    const actuallyScrolled =
+      scrollContainer.scrollTop !== previousTop ||
+      scrollContainer.scrollLeft !== previousLeft;
 
-      if (actuallyScrolled) {
-        edgeScrollFrame = requestAnimationFrame(scrollLoop);
-      } else {
-        stopEdgeScroll();
-      }
+    if (actuallyScrolled) {
+      edgeScrollFrame = requestAnimationFrame(scrollLoop);
     } else {
       stopEdgeScroll();
     }
